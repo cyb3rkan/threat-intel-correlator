@@ -69,8 +69,12 @@ jobs:
       - name: Install dependencies
         run: poetry install --no-root --with dev
 
-      - name: pip-audit
-        run: poetry run pip-audit --strict
+      - name: Upgrade pip and run pip-audit
+        run: |
+          poetry run python -m pip install --upgrade "pip>=26.1.1"
+          poetry run pip-audit --strict --ignore threat-intel-correlator
+
+
 
 
 

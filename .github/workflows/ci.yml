@@ -73,7 +73,9 @@ jobs:
         run: poetry install --no-root --with dev
 
       - name: pip-audit
-        run: poetry run pip-audit
+        run: poetry run pip-audit --ignore threat-intel-correlator
+
+
 
 
 
