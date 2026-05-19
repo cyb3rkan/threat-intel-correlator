@@ -788,7 +788,7 @@ def _render_kpi_cards(result: adapter.SweepResult) -> None:
     crit = severity_counts.get("critical", 0)
     high = severity_counts.get("high", 0)
     med = severity_counts.get("medium", 0)
-    low = severity_counts.get("low", 0)
+    severity_counts.get("low", 0)
 
     col1, col2, col3, col4, col5 = st.columns(5)
     col1.metric("Total Findings", total)

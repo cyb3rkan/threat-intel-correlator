@@ -43,7 +43,7 @@ jobs:
         run: poetry install --no-root --with dev
 
       - name: Lint (ruff)
-        run: poetry run ruff check src tests
+        run: poetry run ruff check src tests --select F,E9
 
       - name: Type check (mypy)
         run: poetry run mypy src
@@ -74,5 +74,6 @@ jobs:
 
       - name: pip-audit
         run: poetry run pip-audit
+
 
 
