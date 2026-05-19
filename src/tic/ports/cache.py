@@ -1,0 +1,9 @@
+from __future__ import annotations
+
+from typing import Protocol
+
+
+class Cache(Protocol):
+    def get(self, namespace: str, key: str) -> bytes | None: ...
+    def set(self, namespace: str, key: str, value: bytes, ttl_seconds: int) -> None: ...
+    def purge_expired(self) -> int: ...

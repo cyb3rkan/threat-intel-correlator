@@ -1,0 +1,122 @@
+# configs/default.yaml
+# Default application settings.
+# Environment variables with TIC_ prefix override these values.
+# NEVER put secrets here — use keyring or env vars.
+
+log_level: "INFO"
+log_format: "json"
+no_color: false
+
+parser_limits:
+  max_file_size_bytes: 104857600  # 100 MB — safe for whole-file json.load
+  max_json_depth: 64
+  max_string_length: 8192
+  max_iocs_per_feed: 100000       # 100K default; upstream parsers enforce this
+  max_archive_ratio: 100
+
+http:
+  connect_timeout_seconds: 5.0
+  read_timeout_seconds: 15.0
+  total_timeout_seconds: 30.0
+  max_retries: 3
+  user_agent: "tic/0.1 (+defensive-cli)"
+  verify_tls: true
+  follow_redirects: false
+
+ai:
+  # AI narration is opt-in. Keep `enabled: false` unless you have
+  # deliberately configured `endpoint_allowlist` and stored an API key
+  # via `tic config set-key ai`. Never store the API key in this file.
+  # AI narration is advisory only — it never changes score, severity,
+  # provider results, correlation, above_threshold, or exit_code.
+  enabled: false
+  endpoint_allowlist: []
+  model: ""
+  max_output_tokens: 512
+  max_input_chars: 8000
+  request_timeout_seconds: 20.0
+  keyring_service: "tic-ai"
+  keyring_user: "default"
+  # --- Phase C additions ---
+  # `language` selects the natural-language portion of AI output. Technical
+  # terms (IOC types, provider names, severity values, schema keys) stay
+  # in English. Default "tr" matches this deployment's operator profile.
+  language: "tr"
+  # `narration_level` is a tone hint. Both levels are still bounded by the
+  # strict AINarrative length caps. "concise" keeps summary/actions short;
+  # "detailed" is slightly more explanatory.
+  narration_level: "concise"
+  # `max_findings_per_sweep` caps AI invocations per sweep so cost and
+  # latency stay bounded. Findings beyond the cap still appear in the
+  # sweep result with `ai_narrative=null`. Range: 1..100.
+  max_findings_per_sweep: 25
+
+providers:
+  abuseipdb:
+    enabled: true
+    keyring_service: "tic-abuseipdb"
+    keyring_user: "default"
+
+  virustotal:
+    enabled: true
+    keyring_service: "tic-virustotal"
+    keyring_user: "default"
+
+  misp:
+    enabled: true
+    keyring_service: "tic-misp"
+    keyring_user: "default"
+    endpoint: "https://localhost:8443"
+    allowed_hosts:
+      - "localhost"
+    # =====================================================================
+    # SECURITY EXCEPTION — local lab only.
+    # `verify_tls: false` disables TLS certificate verification for the MISP
+    # provider's HTTP client. It is required only because a Dockerised MISP
+    # lab on https://localhost:8443 uses a self-signed certificate.
+    # Global `http.verify_tls` above stays true; AbuseIPDB and VirusTotal
+    # remain verified normally.
+    #
+    # Startup logs `provider_tls_verify_disabled` and appends a
+    # tamper-evident audit-chain event so the bypass is reviewable.
+    #
+    # PRODUCTION: remove this line (or set true). Trust your internal CA
+    # via the host truststore instead. NEVER ship `verify_tls: false`
+    # against an internet-reachable endpoint.
+    # =====================================================================
+    verify_tls: false
+
+redaction_hmac_keyring_service: "tic-redaction-hmac"
+redaction_hmac_keyring_user: "default"
+
+# Hash output mode (`--output-mode hash`) requires a key under
+# `redaction_hmac_keyring_service` / `redaction_hmac_keyring_user`.
+# Without one the backend fails closed — never falls back to a deterministic zero key.
+# Store with: `tic config set-key redaction-hmac`.
+
+# Example provider block for production/reference only.
+# NEVER put real keys here; use `tic config set-key`.
+#
+# providers:
+#   abuseipdb:
+#     enabled: true
+#     keyring_service: "tic-abuseipdb"
+#     keyring_user: "default"
+#   virustotal:
+#     enabled: true
+#     keyring_service: "tic-virustotal"
+#     keyring_user: "default"
+#   misp:
+#     enabled: true
+#     keyring_service: "tic-misp"
+#     keyring_user: "default"
+#     endpoint: "https://misp.YOUR-INTERNAL-DOMAIN.example"
+#     allowed_hosts:
+#       - "misp.YOUR-INTERNAL-DOMAIN.example"
+#     # verify_tls satırı production'da kullanılmaz; default true kalır.
+
+# NOTE: `paths` is intentionally absent.
+# Set via env vars:
+#   TIC_PATHS__WORKING_DIR=/path/to/workdir
+#   TIC_PATHS__CACHE_DIR=~/.cache/tic
+#   TIC_PATHS__AUDIT_LOG_PATH=~/.local/state/tic/audit.log

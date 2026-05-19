@@ -1,0 +1,82 @@
+# pyproject.toml
+[tool.poetry]
+name = "threat-intel-correlator"
+version = "0.1.0"
+description = "Defensive threat intel correlation CLI"
+authors = ["TIC Maintainers <security@example.com>"]
+readme = "README.md"
+license = "Apache-2.0"
+packages = [{ include = "tic", from = "src" }]
+
+[tool.poetry.dependencies]
+python = "^3.11"
+pydantic = "^2.7"
+pydantic-settings = "^2.3"
+typer = "^0.12"
+click = ">=8.1,<8.2"  # Pin: typer 0.12.x is incompatible with click >=8.2 (Parameter.make_metavar signature change)
+rich = "^13.7"
+structlog = "^24.1"
+httpx = { extras = ["http2"], version = "^0.27" }
+keyring = "^25.2"
+pyahocorasick = "^2.1"
+defusedxml = "^0.7.1"
+idna = "^3.7"
+python-dateutil = "^2.9"
+tenacity = "^8.3"
+stix2-patterns = "^2.0.0"
+streamlit = { version = "^1.36", optional = true }
+plotly = "^6.7.0"
+fastapi = { version = "^0.115", optional = true }
+uvicorn = { version = "^0.30", optional = true }
+python-multipart = { version = "^0.0.9", optional = true }
+
+[tool.poetry.extras]
+ui = ["streamlit"]
+api = ["fastapi", "uvicorn", "python-multipart"]
+
+[tool.poetry.group.dev.dependencies]
+pytest = "^8.2"
+pytest-asyncio = "^0.23"
+pytest-cov = "^5.0"
+hypothesis = "^6.100"
+respx = "^0.21"
+ruff = "^0.4"
+mypy = "^1.10"
+bandit = "^1.7"
+pip-audit = "^2.7"
+
+[tool.poetry.scripts]
+tic = "tic.cli.main:app"
+
+[build-system]
+requires = ["poetry-core>=1.8"]
+build-backend = "poetry.core.masonry.api"
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+src = ["src", "tests"]
+
+[tool.ruff.lint]
+select = ["E","F","W","I","B","UP","S","A","C4","PT","RET","SIM","TCH","PL"]
+ignore = ["S101"]  # assert in tests
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**/*" = ["S101","S105","S106","PLR2004"]
+
+[tool.mypy]
+python_version = "3.11"
+strict = true
+warn_unreachable = true
+disallow_any_generics = true
+disallow_untyped_defs = true
+no_implicit_optional = true
+
+[tool.pytest.ini_options]
+addopts = "-ra --strict-markers --strict-config --cov=tic --cov-report=term-missing --cov-fail-under=80"
+testpaths = ["tests"]
+asyncio_mode = "auto"
+
+[tool.bandit]
+exclude_dirs = ["tests"]
+skips = ["B101"]

@@ -1,0 +1,42 @@
+# configs/scoring_profile.v1.yaml
+# IOC scoring profili — her IOC type için ağırlık ve decay parametreleri.
+# Bu dosya --scoring-profile argümanıyla yüklenebilir.
+
+version: 1
+
+# Taban skor çarpanları (0.0 - 2.0 arası)
+# Yüksek değer = bu tip IOC'ler daha kritik kabul edilir
+type_weights:
+  ip: 1.0
+  domain: 0.9
+  url: 0.85
+  hash_md5: 0.6       # MD5 collision riski nedeniyle düşük
+  hash_sha1: 0.7      # SHA1 zayıf, ama MD5'ten iyi
+  hash_sha256: 1.0
+  hash_sha512: 1.0
+  email: 0.75
+  cve: 1.2            # CVE'ler genellikle yüksek öncelikli
+  filename: 0.4       # En düşük güvenilirlik
+  asn: 0.8
+
+# Zaman bazlı skor decay (yaşlanan IOC'lerin skoru düşer)
+time_decay:
+  enabled: true
+  half_life_days: 30        # 30 günde skor yarıya iner
+  minimum_score_ratio: 0.1  # Skor en fazla %90 düşebilir
+
+# Confidence eşikleri
+confidence_thresholds:
+  critical: 80   # >= 80 → CRITICAL finding
+  high: 60       # >= 60 → HIGH
+  medium: 40     # >= 40 → MEDIUM
+  low: 0         # < 40  → LOW
+
+# Kaynak güvenilirlik çarpanları
+source_trust:
+  misp: 1.0
+  virustotal: 0.9
+  abuseipdb: 0.85
+  csv: 0.7        # Manuel besleme, daha az güvenilir
+  stix: 1.0
+  ndjson: 0.75

@@ -1,0 +1,170 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.pyc
+.Python
+
+# Virtual environments
+.venv/
+venv/
+env/
+ENV/
+
+# Distribution / packaging
+dist/
+build/
+*.egg-info/
+*.egg
+.eggs/
+
+# Testing & coverage
+.pytest_cache/
+.coverage
+.coverage.*
+htmlcov/
+coverage.xml
+*.cover
+
+# Type checking
+.mypy_cache/
+.dmypy.json
+dmypy.json
+
+# Ruff
+.ruff_cache/
+
+# Secrets & local config
+.env
+*.env
+!configs/example.env
+
+# OS artifacts
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Logs & audit
+*.log
+audit_chain.jsonl
+
+# Project specific
+*.db
+*.sqlite
+*.sqlite3
+
+# Static analysis / security
+.bandit
+.pyre/
+.pytype/
+
+# Local runtime outputs
+tmp/
+temp/
+*.tmp
+
+# UI upload staging (created by tic.ui.adapter, cleaned per-session)
+.tic-ui-uploads/
+
+# Frontend (Next.js)
+frontend/node_modules/
+frontend/.next/
+frontend/out/
+frontend/.vercel/
+# .env*.local already covered by frontend/.gitignore; keep here as belt-and-suspenders.
+frontend/.env*.local
+
+# v0 sandbox / migration backups (kept on disk, never committed)
+_misplaced_v0_root_backup_*/
+
+# Per-file config snapshots taken before risky edits
+configs/*.bak
+configs/*.before-*
+
+# Local cleanup backups (e.g. backup/pre-ai-cleanup-YYYYMMDD-HHMMSS/)
+backup/
+.last_backup_path
+configs/local.yaml
+
+# Local runtime / manual smoke artifacts
+*.pyc
+*.pyo
+.coverage
+.tic-ui-uploads/
+ui-test-fixtures/
+backup/
+*-smoke*.json
+*-smoke*.err
+ai-smoke*.json
+ai-smoke*.err
+full-smoke*.json
+full-smoke*.err
+one-smoke*.json
+one-smoke*.err
+rc-smoke*.json
+rc-smoke*.err
+misp-provider-check*.json
+misp-provider-check*.err
+tiny-iocs.csv
+tiny-events.ndjson
+full-smoke-iocs.csv
+full-smoke-events.ndjson
+one-smoke-iocs.csv
+one-smoke-events.ndjson
+
+# Local config / frontend build outputs
+configs/local.yaml
+frontend/.next/
+frontend/out/
+frontend/dist/
+frontend/build/
+
+# Local-only secrets / runtime / manual artifacts
+configs/local.yaml
+frontend/.env.local
+.claude/
+.last_backup_path
+.coverage
+.tic-ui-uploads/
+ui-test-fixtures/
+backup/
+*-smoke*.json
+*-smoke*.err
+ai-smoke*.json
+ai-smoke*.err
+full-smoke*.json
+full-smoke*.err
+one-smoke*.json
+one-smoke*.err
+rc-smoke*.json
+rc-smoke*.err
+misp-provider-check*.json
+misp-provider-check*.err
+tiny-iocs.csv
+tiny-events.ndjson
+full-smoke-iocs.csv
+full-smoke-events.ndjson
+one-smoke-iocs.csv
+one-smoke-events.ndjson
+
+# Frontend local/build outputs
+frontend/.next/
+frontend/out/
+frontend/dist/
+frontend/build/
+frontend/node_modules/
+
+# Local secret scan baseline - do not publish
+.secrets.baseline
+
+
+# TypeScript incremental build cache
+*.tsbuildinfo
+
