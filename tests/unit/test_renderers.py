@@ -3,7 +3,7 @@ from __future__ import annotations
 
 import io
 import json
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 from tic.adapters.renderers.json_renderer import render_json
 from tic.adapters.renderers.terminal_renderer import render_terminal
@@ -27,7 +27,7 @@ def _finding(
         severity=severity,
         profile_hash="a" * 64,
         correlation_id="cid",
-        created_at=datetime(2025, 1, 1, tzinfo=timezone.utc),
+        created_at=datetime(2025, 1, 1, tzinfo=UTC),
         ai_narrative=ai_narrative,
     )
 
@@ -39,15 +39,18 @@ def _narrative() -> AINarrative:
         suggested_actions=["Block IP"],
         confidence="high",
         model="test-model",
-        generated_at=datetime(2025, 1, 1, tzinfo=timezone.utc),
+        generated_at=datetime(2025, 1, 1, tzinfo=UTC),
     )
 
 
 # --- terminal_renderer ---
 
+
 def test_terminal_render_returns_count():
     out = io.StringIO()
-    count = render_terminal([_finding(), _finding(value="evil.example.com", ioc_type=IOCType.DOMAIN)], out)
+    count = render_terminal(
+        [_finding(), _finding(value="evil.example.com", ioc_type=IOCType.DOMAIN)], out
+    )
     assert count == 2
 
 
@@ -103,6 +106,7 @@ def test_terminal_render_empty_list():
 
 
 # --- json_renderer ---
+
 
 def test_json_render_returns_count():
     out = io.StringIO()

@@ -32,11 +32,12 @@ Privacy invariants preserved:
   exception *type*, request timeout. Never the prompt, completion, raw
   response body, API key, or Authorization-equivalent header.
 """
+
 from __future__ import annotations
 
 import asyncio
 import json
-from typing import Callable
+from collections.abc import Callable
 
 from tic.adapters.http.safe_client import SafeHttpClient
 from tic.application.ai.prompt_builder import build_messages
@@ -183,9 +184,7 @@ class GeminiProvider(AIProvider):
     # Request body assembly
     # ------------------------------------------------------------------
 
-    def _build_body(
-        self, finding: RedactedFinding, *, retry: bool
-    ) -> dict | None:
+    def _build_body(self, finding: RedactedFinding, *, retry: bool) -> dict | None:
         """Build the generateContent body. On retry, the system prompt
         gets a stricter suffix and `maxOutputTokens` is halved (floor 64)
         so the model is less likely to truncate mid-string.
@@ -234,9 +233,7 @@ class GeminiProvider(AIProvider):
     # Single round-trip
     # ------------------------------------------------------------------
 
-    async def _post_once(
-        self, body: dict
-    ) -> tuple[AINarrative | None, str | None]:
+    async def _post_once(self, body: dict) -> tuple[AINarrative | None, str | None]:
         """POST the request once. Returns `(narrative, retry_reason)`:
 
         - `(AINarrative, None)`   → success
@@ -255,10 +252,8 @@ class GeminiProvider(AIProvider):
         timeout_s = float(self._cfg.request_timeout_seconds)
         try:
             async with asyncio.timeout(timeout_s):
-                resp = await self._http.post(
-                    self._endpoint, headers=headers, content=data
-                )
-        except asyncio.TimeoutError:
+                resp = await self._http.post(self._endpoint, headers=headers, content=data)
+        except TimeoutError:
             _log.warning("ai_request_timeout", timeout_seconds=timeout_s)
             return None, None
         except Exception as e:  # noqa: BLE001 — never propagate provider faults

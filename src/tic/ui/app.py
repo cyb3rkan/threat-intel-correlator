@@ -9,13 +9,14 @@ or tracebacks are ever rendered to the user.
 
 REDESIGNED: Dark SOC-style dashboard matching IntSights reference.
 """
+
 from __future__ import annotations
 
 from pathlib import Path
 from typing import Any
 
-import streamlit as st
 import plotly.graph_objects as go
+import streamlit as st
 
 from tic.security.ansi_strip import strip_terminal_controls
 from tic.ui import adapter
@@ -535,27 +536,34 @@ def _create_severity_donut(result: adapter.SweepResult) -> go.Figure:
             values.append(severity_counts[sev])
             colors.append(color_map.get(sev, "#a8c5e2"))
 
-    fig = go.Figure(data=[go.Pie(
-        labels=labels,
-        values=values,
-        hole=0.65,
-        marker=dict(colors=colors, line=dict(color='#162030', width=2)),
-        textinfo='none',
-        hovertemplate='<b>%{label}</b><br>Count: %{value}<extra></extra>',
-    )])
+    fig = go.Figure(
+        data=[
+            go.Pie(
+                labels=labels,
+                values=values,
+                hole=0.65,
+                marker=dict(colors=colors, line=dict(color="#162030", width=2)),
+                textinfo="none",
+                hovertemplate="<b>%{label}</b><br>Count: %{value}<extra></extra>",
+            )
+        ]
+    )
 
     fig.update_layout(
         showlegend=False,
-        paper_bgcolor='rgba(0,0,0,0)',
-        plot_bgcolor='rgba(0,0,0,0)',
+        paper_bgcolor="rgba(0,0,0,0)",
+        plot_bgcolor="rgba(0,0,0,0)",
         margin=dict(l=10, r=10, t=10, b=10),
         height=200,
-        annotations=[dict(
-            text=f'<b>{sum(values)}</b><br><span style="font-size:10px">TOTAL</span>',
-            x=0.5, y=0.5,
-            font=dict(size=20, color='#ffffff'),
-            showarrow=False,
-        )]
+        annotations=[
+            dict(
+                text=f'<b>{sum(values)}</b><br><span style="font-size:10px">TOTAL</span>',
+                x=0.5,
+                y=0.5,
+                font=dict(size=20, color="#ffffff"),
+                showarrow=False,
+            )
+        ],
     )
 
     return fig
@@ -607,7 +615,8 @@ def _sidebar(settings: Any) -> dict[str, Any] | None:
 
     with st.sidebar:
         # Logo/branding area
-        st.markdown("""
+        st.markdown(
+            """
         <div style="padding: 1rem 0 1.5rem 0; border-bottom: 1px solid #2d4a6f; margin-bottom: 1.5rem;">
             <div style="display: flex; align-items: center; gap: 0.75rem;">
                 <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#1e88e5" stroke-width="2">
@@ -619,14 +628,19 @@ def _sidebar(settings: Any) -> dict[str, Any] | None:
                 </div>
             </div>
         </div>
-        """, unsafe_allow_html=True)
+        """,
+            unsafe_allow_html=True,
+        )
 
         # Navigation-style header
-        st.markdown("""
+        st.markdown(
+            """
         <div style="color: #8ba3c7; font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.1em; margin-bottom: 1rem;">
             SWEEP CONFIGURATION
         </div>
-        """, unsafe_allow_html=True)
+        """,
+            unsafe_allow_html=True,
+        )
 
         with st.form("sweep_form", clear_on_submit=False):
             # Input Files Section
@@ -826,37 +840,54 @@ def _render_results(result: adapter.SweepResult, mode: str) -> None:
 
     # Types panel
     with col_types:
-        st.markdown("""
+        st.markdown(
+            """
         <div class="panel-card">
             <div class="panel-header">
                 <span class="panel-title">TYPES</span>
             </div>
         </div>
-        """, unsafe_allow_html=True)
+        """,
+            unsafe_allow_html=True,
+        )
 
         type_counts = _create_type_distribution(result)
         for ioc_type, count in sorted(type_counts.items(), key=lambda x: -x[1]):
-            icon = "🌐" if "ip" in ioc_type.lower() else "🔗" if "url" in ioc_type.lower() else "📧" if "email" in ioc_type.lower() else "📄"
-            st.markdown(f"""
+            icon = (
+                "🌐"
+                if "ip" in ioc_type.lower()
+                else "🔗"
+                if "url" in ioc_type.lower()
+                else "📧"
+                if "email" in ioc_type.lower()
+                else "📄"
+            )
+            st.markdown(
+                f"""
             <div style="display: flex; align-items: center; gap: 0.75rem; padding: 0.5rem 0; border-bottom: 1px solid #2d4a6f;">
                 <span style="font-size: 1.25rem;">{icon}</span>
                 <span style="color: #ffffff; font-weight: 700; font-size: 1.1rem;">{count}</span>
                 <span style="color: #8ba3c7; font-size: 0.75rem; text-transform: uppercase;">{ioc_type}</span>
             </div>
-            """, unsafe_allow_html=True)
+            """,
+                unsafe_allow_html=True,
+            )
 
     # Severities donut chart
     with col_sev:
-        st.markdown("""
+        st.markdown(
+            """
         <div class="panel-card">
             <div class="panel-header">
                 <span class="panel-title">SEVERITIES</span>
             </div>
         </div>
-        """, unsafe_allow_html=True)
+        """,
+            unsafe_allow_html=True,
+        )
 
         fig = _create_severity_donut(result)
-        st.plotly_chart(fig, use_container_width=True, config={'displayModeBar': False})
+        st.plotly_chart(fig, use_container_width=True, config={"displayModeBar": False})
 
         # Legend below chart
         severity_counts: dict[str, int] = {}
@@ -870,23 +901,29 @@ def _render_results(result: adapter.SweepResult, mode: str) -> None:
             ("HIGH", severity_counts.get("high", 0), "#ffa502"),
             ("MEDIUM", severity_counts.get("medium", 0), "#2ed573"),
         ]
-        for col, (label, count, color) in zip(legend_cols, sev_items):
-            col.markdown(f"""
+        for col, (label, count, color) in zip(legend_cols, sev_items, strict=False):
+            col.markdown(
+                f"""
             <div style="text-align: center;">
                 <div style="color: {color}; font-weight: 700;">{count}</div>
                 <div style="color: #8ba3c7; font-size: 0.65rem;">{label}</div>
             </div>
-            """, unsafe_allow_html=True)
+            """,
+                unsafe_allow_html=True,
+            )
 
     # Sources panel (IOC sources)
     with col_sources:
-        st.markdown("""
+        st.markdown(
+            """
         <div class="panel-card">
             <div class="panel-header">
                 <span class="panel-title">SOURCES</span>
             </div>
         </div>
-        """, unsafe_allow_html=True)
+        """,
+            unsafe_allow_html=True,
+        )
 
         source_counts: dict[str, int] = {}
         for f in result.findings:
@@ -896,7 +933,8 @@ def _render_results(result: adapter.SweepResult, mode: str) -> None:
         total_sources = sum(source_counts.values()) or 1
         for source, count in sorted(source_counts.items(), key=lambda x: -x[1])[:5]:
             pct = int((count / total_sources) * 100)
-            st.markdown(f"""
+            st.markdown(
+                f"""
             <div style="margin-bottom: 0.75rem;">
                 <div style="display: flex; justify-content: space-between; margin-bottom: 0.25rem;">
                     <span style="color: #a8c5e2; font-size: 0.75rem; text-transform: uppercase;">{source[:20]}</span>
@@ -906,7 +944,9 @@ def _render_results(result: adapter.SweepResult, mode: str) -> None:
                     <div class="risk-meter-fill" style="width: {pct}%; background: #70a1ff;"></div>
                 </div>
             </div>
-            """, unsafe_allow_html=True)
+            """,
+                unsafe_allow_html=True,
+            )
 
     st.markdown("<div style='height: 1.5rem;'></div>", unsafe_allow_html=True)
     st.divider()
@@ -976,12 +1016,15 @@ def _render_detail(result: adapter.SweepResult, finding_id: str, mode: str) -> N
 
     with st.container(border=True):
         # Header with severity badge
-        st.markdown(f"""
+        st.markdown(
+            f"""
         <div style="display: flex; align-items: center; gap: 1rem; margin-bottom: 1rem;">
             <span style="color: #ffffff; font-weight: 700; font-size: 1.1rem;">FINDING DETAIL</span>
             {_severity_badge(pub.severity)}
         </div>
-        """, unsafe_allow_html=True)
+        """,
+            unsafe_allow_html=True,
+        )
 
         c1, c2, c3 = st.columns(3)
         c1.metric("Severity", pub.severity)
@@ -1042,7 +1085,8 @@ def _render_detail(result: adapter.SweepResult, finding_id: str, mode: str) -> N
 
 def _render_welcome_state() -> None:
     """Render the welcome/empty state when no sweep has been run."""
-    st.markdown("""
+    st.markdown(
+        """
     <div style="text-align: center; padding: 3rem 2rem;">
         <svg width="80" height="80" viewBox="0 0 24 24" fill="none" stroke="#2d4a6f" stroke-width="1.5" style="margin-bottom: 1.5rem;">
             <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
@@ -1053,7 +1097,9 @@ def _render_welcome_state() -> None:
             then click <strong>RUN SWEEP</strong> to begin analysis.
         </p>
     </div>
-    """, unsafe_allow_html=True)
+    """,
+        unsafe_allow_html=True,
+    )
 
 
 def main() -> None:

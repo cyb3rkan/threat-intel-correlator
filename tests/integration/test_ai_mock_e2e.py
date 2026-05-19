@@ -20,15 +20,15 @@ Contracts frozen here:
       - the audit chain payloads
       - the rendered JSON / Markdown export.
 """
+
 from __future__ import annotations
 
 import asyncio
 import io
 import json
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 import pytest
-
 from tests.fixtures.fake_secret_store import (
     PLACEHOLDER_HMAC_32B,
     default_ai_and_hmac_store,
@@ -52,12 +52,11 @@ from tic.application.scoring import ScoringProfile
 from tic.domain.finding import Finding, OutputMode, Severity
 from tic.infra.exit_codes import ExitCode
 
-
 _RAW_IOC = "phase-d-secret-ioc.example"
 
 
 def _ts() -> datetime:
-    return datetime(2026, 5, 14, 12, 0, 0, tzinfo=timezone.utc)
+    return datetime(2026, 5, 14, 12, 0, 0, tzinfo=UTC)
 
 
 class _CapturingAudit:
@@ -84,7 +83,9 @@ class _CollectingOut(io.StringIO):
     findings_collected: list[Finding] = []
 
 
-def _run(narrator: Narrator | None, audit, *, fail_on: Severity = Severity.INFO) -> tuple[ExitCode, list[Finding]]:
+def _run(
+    narrator: Narrator | None, audit, *, fail_on: Severity = Severity.INFO
+) -> tuple[ExitCode, list[Finding]]:
     iocs = [make_ioc(_RAW_IOC, source="phase-d-test", confidence=95)]
     logs = [
         LogLine(source="fw", timestamp=_ts(), text=f"blocked {_RAW_IOC}"),
@@ -99,9 +100,7 @@ def _run(narrator: Narrator | None, audit, *, fail_on: Severity = Severity.INFO)
         ai_max_findings_per_sweep=25,
     )
     out = _CollectingOut()
-    code = asyncio.run(
-        orch.run(iocs=iocs, log_lines=logs, out=out, render_fn=_render_collect)
-    )
+    code = asyncio.run(orch.run(iocs=iocs, log_lines=logs, out=out, render_fn=_render_collect))
     return code, out.findings_collected
 
 
@@ -200,9 +199,7 @@ def test_e2e_mock_ai_no_raw_ioc_in_audit_or_rendered_output() -> None:
 
 def test_e2e_mock_ai_timeout_falls_back_to_no_narrative() -> None:
     audit = _CapturingAudit()
-    narrator = Narrator(
-        MockAIProviderTimeout(), Redactor(PLACEHOLDER_HMAC_32B), audit=audit
-    )
+    narrator = Narrator(MockAIProviderTimeout(), Redactor(PLACEHOLDER_HMAC_32B), audit=audit)
     code, findings = _run(narrator, audit)
 
     # Sweep still succeeds.
@@ -218,9 +215,7 @@ def test_e2e_mock_ai_timeout_falls_back_to_no_narrative() -> None:
 
 def test_e2e_mock_ai_invalid_response_falls_back_to_no_narrative() -> None:
     audit = _CapturingAudit()
-    narrator = Narrator(
-        MockAIProviderInvalidJson(), Redactor(PLACEHOLDER_HMAC_32B), audit=audit
-    )
+    narrator = Narrator(MockAIProviderInvalidJson(), Redactor(PLACEHOLDER_HMAC_32B), audit=audit)
     code, findings = _run(narrator, audit)
     assert code in (ExitCode.SUCCESS, ExitCode.FINDINGS_ABOVE_THRESHOLD)
     assert all(f.ai_narrative is None for f in findings)
@@ -236,9 +231,7 @@ def test_e2e_mock_ai_invalid_response_falls_back_to_no_narrative() -> None:
 
 def test_e2e_mock_ai_turkish_narrative_round_trips_via_renderers() -> None:
     audit = _CapturingAudit()
-    narrator = Narrator(
-        MockAIProviderTurkish(), Redactor(PLACEHOLDER_HMAC_32B), audit=audit
-    )
+    narrator = Narrator(MockAIProviderTurkish(), Redactor(PLACEHOLDER_HMAC_32B), audit=audit)
     code, findings = _run(narrator, audit)
     assert code in (ExitCode.SUCCESS, ExitCode.FINDINGS_ABOVE_THRESHOLD)
     annotated = [f for f in findings if f.ai_narrative is not None]
@@ -291,10 +284,16 @@ def test_e2e_audit_events_are_metadata_only_for_full_run() -> None:
     _run(narrator, audit)
 
     allowed_event_types = {
-        "sweep_start", "sweep_end", "partial_scan_warning",
-        "ai_invoke", "ai_response_rejected", "ai_narrative_attached",
+        "sweep_start",
+        "sweep_end",
+        "partial_scan_warning",
+        "ai_invoke",
+        "ai_response_rejected",
+        "ai_narrative_attached",
         "ai_input_truncated",
-        "cli_invoke", "ui_invoke", "provider_tls_verify_disabled",
+        "cli_invoke",
+        "ui_invoke",
+        "provider_tls_verify_disabled",
     }
     for ev, payload in audit.events:
         assert ev in allowed_event_types, f"unknown audit event: {ev!r}"

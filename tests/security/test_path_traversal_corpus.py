@@ -1,20 +1,30 @@
 # tests/security/test_path_traversal_corpus.py
 """Path traversal corpus tests."""
+
 from __future__ import annotations
+
 from pathlib import Path
+
 import pytest
+
 from tic.domain.errors import SecurityViolationError
 from tic.security.path_guard import safe_resolve_within
 
 
-@pytest.fixture
-def root(tmp_path): return tmp_path
+@pytest.fixture()
+def root(tmp_path):
+    return tmp_path
 
 
-@pytest.mark.parametrize("candidate", [
-    "../../etc/passwd", "../../../etc/shadow",
-    "subdir/../../etc/passwd", "./../../etc/hosts",
-])
+@pytest.mark.parametrize(
+    "candidate",
+    [
+        "../../etc/passwd",
+        "../../../etc/shadow",
+        "subdir/../../etc/passwd",
+        "./../../etc/hosts",
+    ],
+)
 def test_relative_traversal_rejected(candidate, root):
     with pytest.raises(SecurityViolationError):
         safe_resolve_within(candidate, allowed_root=root)

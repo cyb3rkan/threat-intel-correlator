@@ -6,6 +6,7 @@ Design:
 - Canonical string in `value`; parsers must normalize before constructing.
 - No I/O, no side effects.
 """
+
 from __future__ import annotations
 
 from datetime import datetime
@@ -28,7 +29,9 @@ class IOCType(str, Enum):
     CVE = "cve"
 
 
-CanonicalStr = Annotated[str, StringConstraints(min_length=1, max_length=2048, strip_whitespace=True)]
+CanonicalStr = Annotated[
+    str, StringConstraints(min_length=1, max_length=2048, strip_whitespace=True)
+]
 ShortStr = Annotated[str, StringConstraints(max_length=256, strip_whitespace=True)]
 
 

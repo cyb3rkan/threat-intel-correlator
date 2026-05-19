@@ -11,6 +11,7 @@ Extracts IOCs from:
 Unknown attribute `type` values are silently ignored; the normalizer is the
 final authority on whether a string is a valid IOC.
 """
+
 from __future__ import annotations
 
 import json

@@ -1,5 +1,6 @@
 # src/tic/infra/logging.py
 """Structured logging setup with mandatory redaction of sensitive keys."""
+
 from __future__ import annotations
 
 import logging

@@ -1,8 +1,9 @@
 # tests/unit/test_domain_models.py
 """Tests for newly added domain models: LogEvent, Asset."""
+
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 import pytest
 from pydantic import ValidationError
@@ -14,7 +15,7 @@ from tic.domain.log_event import LogEvent
 def test_log_event_requires_raw_line_hash_exact_length() -> None:
     with pytest.raises(ValidationError):
         LogEvent(
-            timestamp=datetime.now(timezone.utc),
+            timestamp=datetime.now(UTC),
             source="x",
             raw_line_hash="tooshort",
         )
@@ -22,7 +23,7 @@ def test_log_event_requires_raw_line_hash_exact_length() -> None:
 
 def test_log_event_is_frozen() -> None:
     ev = LogEvent(
-        timestamp=datetime.now(timezone.utc),
+        timestamp=datetime.now(UTC),
         source="s",
         raw_line_hash="a" * 64,
     )
@@ -33,7 +34,7 @@ def test_log_event_is_frozen() -> None:
 def test_log_event_rejects_extra_fields() -> None:
     with pytest.raises(ValidationError):
         LogEvent(  # type: ignore[call-arg]
-            timestamp=datetime.now(timezone.utc),
+            timestamp=datetime.now(UTC),
             source="s",
             raw_line_hash="a" * 64,
             nope="x",
@@ -42,7 +43,7 @@ def test_log_event_rejects_extra_fields() -> None:
 
 def test_log_event_accepts_optional_fields() -> None:
     ev = LogEvent(
-        timestamp=datetime.now(timezone.utc),
+        timestamp=datetime.now(UTC),
         source="firewall",
         src_ip="10.0.0.1",
         dst_ip="8.8.8.8",

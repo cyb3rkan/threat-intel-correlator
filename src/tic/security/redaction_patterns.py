@@ -14,6 +14,7 @@ Rationale:
   regex scan catches that class of bugs.
 - Patterns are deliberately conservative to minimize false positives.
 """
+
 from __future__ import annotations
 
 import re
@@ -33,9 +34,7 @@ class _Pattern:
     regex: _SearchableRe
 
 
-_EMAIL = re.compile(
-    r"\b[a-zA-Z0-9._%+-]{1,64}@[a-zA-Z0-9.-]{1,253}\.[a-zA-Z]{2,24}\b"
-)
+_EMAIL = re.compile(r"\b[a-zA-Z0-9._%+-]{1,64}@[a-zA-Z0-9.-]{1,253}\.[a-zA-Z]{2,24}\b")
 
 # RFC1918 IPv4 (full, not partial-match). Excludes 127.0.0.0/8 since loopback
 # values may be legitimate constants in generic config examples.
@@ -56,12 +55,7 @@ _PRIVATE_IPV4 = re.compile(
 # - Bounded quantifier {2,5} avoids catastrophic backtracking.
 # - We avoid variable-width negative lookbehinds (not supported by `re`) by
 #   post-filtering matches for a minimum digit count.
-_PHONE_SHAPE = re.compile(
-    r"(?<!\d)"
-    r"\+?\d{1,3}"
-    r"(?:[\s.\-]?\(?\d{2,4}\)?){2,5}"
-    r"(?!\d)"
-)
+_PHONE_SHAPE = re.compile(r"(?<!\d)" r"\+?\d{1,3}" r"(?:[\s.\-]?\(?\d{2,4}\)?){2,5}" r"(?!\d)")
 _MIN_PHONE_DIGITS = 8
 
 

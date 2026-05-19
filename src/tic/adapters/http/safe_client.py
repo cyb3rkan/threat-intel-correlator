@@ -7,6 +7,7 @@ Security fixes applied:
 - total_timeout enforced via asyncio.timeout.
 - Relative Location headers resolved before SSRF check.
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -14,7 +15,13 @@ from dataclasses import dataclass
 from urllib.parse import urljoin, urlparse
 
 import httpx
-from tenacity import RetryError, retry, retry_if_exception_type, stop_after_attempt, wait_exponential_jitter
+from tenacity import (
+    RetryError,
+    retry,
+    retry_if_exception_type,
+    stop_after_attempt,
+    wait_exponential_jitter,
+)
 
 from tic.domain.errors import NetworkError, SecurityViolationError
 from tic.infra.config import HttpClientConfig
@@ -23,13 +30,22 @@ from tic.security.ssrf_guard import ensure_public_url
 
 _log = get_logger(__name__)
 
-_CREDENTIAL_HEADERS: frozenset[str] = frozenset({
-    "authorization", "x-apikey", "key", "cookie", "x-auth-token", "api-key",
-})
+_CREDENTIAL_HEADERS: frozenset[str] = frozenset(
+    {
+        "authorization",
+        "x-apikey",
+        "key",
+        "cookie",
+        "x-auth-token",
+        "api-key",
+    }
+)
 
 
-def _drop_auth_on_cross_host(orig_url: str, redir_url: str, headers: dict[str, str]) -> dict[str, str]:
-    orig_host  = (urlparse(orig_url).hostname  or "").lower()
+def _drop_auth_on_cross_host(
+    orig_url: str, redir_url: str, headers: dict[str, str]
+) -> dict[str, str]:
+    orig_host = (urlparse(orig_url).hostname or "").lower()
     redir_host = (urlparse(redir_url).hostname or "").lower()
     if orig_host == redir_host:
         return headers
@@ -42,8 +58,8 @@ def _drop_auth_on_cross_host(orig_url: str, redir_url: str, headers: dict[str, s
 @dataclass(frozen=True)
 class HttpResponse:
     status_code: int
-    headers:     dict[str, str]
-    body_bytes:  bytes
+    headers: dict[str, str]
+    body_bytes: bytes
 
 
 class SafeHttpClient:
@@ -56,8 +72,8 @@ class SafeHttpClient:
         allow_cross_origin_redirect: bool = False,
         verify_tls: bool | None = None,
     ) -> None:
-        self._cfg      = cfg
-        self._extra    = extra_host_allowlist
+        self._cfg = cfg
+        self._extra = extra_host_allowlist
         self._max_body = max_body_bytes
         # Provider calls should use allow_cross_origin_redirect=False (default)
         # so unexpected redirects to foreign hosts fail-closed rather than
@@ -126,20 +142,31 @@ class SafeHttpClient:
     async def get(self, url: str, *, headers: dict[str, str] | None = None) -> HttpResponse:
         return await self._request("GET", url, headers=headers, content=None)
 
-    async def post(self, url: str, *, headers: dict[str, str] | None = None, content: bytes | None = None) -> HttpResponse:
+    async def post(
+        self, url: str, *, headers: dict[str, str] | None = None, content: bytes | None = None
+    ) -> HttpResponse:
         return await self._request("POST", url, headers=headers, content=content)
 
-    async def _request(self, method: str, url: str, *, headers: dict[str, str] | None, content: bytes | None) -> HttpResponse:
+    async def _request(
+        self, method: str, url: str, *, headers: dict[str, str] | None, content: bytes | None
+    ) -> HttpResponse:
         ensure_public_url(url, extra_allowlist=self._extra)
-        original_url     = url
-        active_headers   = dict(headers or {})
+        original_url = url
+        active_headers = dict(headers or {})
 
         async def _do() -> HttpResponse:
-            current_url  = original_url
-            cur_headers  = dict(active_headers)
+            current_url = original_url
+            cur_headers = dict(active_headers)
             try:
-                resp = await self._client.request(method, current_url, headers=cur_headers, content=content)
-            except (httpx.ConnectError, httpx.ReadTimeout, httpx.WriteTimeout, httpx.TimeoutException) as e:
+                resp = await self._client.request(
+                    method, current_url, headers=cur_headers, content=content
+                )
+            except (
+                httpx.ConnectError,
+                httpx.ReadTimeout,
+                httpx.WriteTimeout,
+                httpx.TimeoutException,
+            ) as e:
                 raise NetworkError(f"{method} network error: {type(e).__name__}") from e
 
             hops = 0
@@ -150,7 +177,7 @@ class SafeHttpClient:
                 absolute_loc = urljoin(current_url, loc)
                 ensure_public_url(absolute_loc, extra_allowlist=self._extra)
 
-                orig_host  = (urlparse(current_url).hostname  or "").lower()
+                orig_host = (urlparse(current_url).hostname or "").lower()
                 redir_host = (urlparse(absolute_loc).hostname or "").lower()
                 if orig_host != redir_host and not self._cross_origin_ok:
                     raise SecurityViolationError(
@@ -189,7 +216,7 @@ class SafeHttpClient:
                         except RetryError as e:
                             raise NetworkError("all retries exhausted") from e
                     return await _do()
-            except asyncio.TimeoutError as e:
+            except TimeoutError as e:
                 raise NetworkError(f"total timeout ({self._total_timeout}s) exceeded") from e
 
         return await _with_timeout()

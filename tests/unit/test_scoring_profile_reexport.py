@@ -1,5 +1,6 @@
 # tests/unit/test_scoring_profile_reexport.py
 """Ensure domain re-export of ScoringProfile stays identical to canonical."""
+
 from __future__ import annotations
 
 from tic.application.scoring import ScoringProfile as AppProfile

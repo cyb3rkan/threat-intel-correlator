@@ -8,11 +8,12 @@ test is in `tic.application.orchestrator.SweepOrchestrator`: AI runs after
 scoring and only attaches `ai_narrative` via `model_copy`. Nothing else is
 mutated.
 """
+
 from __future__ import annotations
 
 import asyncio
 import io
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 from tic.application.correlation import LogLine
 from tic.application.normalization import make_ioc
@@ -23,7 +24,7 @@ from tic.infra.exit_codes import ExitCode
 
 
 def _ts() -> datetime:
-    return datetime(2024, 1, 1, 12, 0, 0, tzinfo=timezone.utc)
+    return datetime(2024, 1, 1, 12, 0, 0, tzinfo=UTC)
 
 
 def _profile() -> ScoringProfile:
@@ -61,7 +62,7 @@ class _FakeNarrator:
             suggested_actions=["Investigate"],
             confidence="medium",
             model="placeholder-model",
-            generated_at=datetime(2025, 1, 1, tzinfo=timezone.utc),
+            generated_at=datetime(2025, 1, 1, tzinfo=UTC),
         )
 
     async def narrate(self, finding: Finding) -> Finding:
@@ -152,9 +153,7 @@ def test_ai_does_not_mutate_above_threshold_flag_via_audit() -> None:
             min_severity_exit=Severity.INFO,
         )
         out = _CollectingOut()
-        asyncio.run(
-            orch.run(iocs=iocs, log_lines=log_lines, out=out, render_fn=_render_collect)
-        )
+        asyncio.run(orch.run(iocs=iocs, log_lines=log_lines, out=out, render_fn=_render_collect))
 
     end_off = next(e for e in audit_off.events if e[0] == "sweep_end")
     end_on = next(e for e in audit_on.events if e[0] == "sweep_end")
@@ -181,9 +180,7 @@ def test_sweep_end_records_ai_narratives_generated_count() -> None:
             min_severity_exit=Severity.INFO,
         )
         out = _CollectingOut()
-        asyncio.run(
-            orch.run(iocs=iocs, log_lines=log_lines, out=out, render_fn=_render_collect)
-        )
+        asyncio.run(orch.run(iocs=iocs, log_lines=log_lines, out=out, render_fn=_render_collect))
 
     end_off = next(e for e in audit_off.events if e[0] == "sweep_end")
     end_on = next(e for e in audit_on.events if e[0] == "sweep_end")

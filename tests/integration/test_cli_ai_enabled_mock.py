@@ -14,6 +14,7 @@ breaks `structlog.testing.capture_logs()` used elsewhere in the test
 suite (e.g. `test_misp_verify_tls.py`). We patch `configure_logging`
 out for these CLI tests so this file stays hermetic.
 """
+
 from __future__ import annotations
 
 import contextlib
@@ -21,18 +22,17 @@ import json
 from pathlib import Path
 from unittest.mock import patch
 
-from typer.testing import CliRunner
-
 from tests.fixtures.fake_secret_store import PLACEHOLDER_HMAC_32B
 from tests.fixtures.mock_ai_provider import (
     MockAIProvider,
     MockAIProviderTimeout,
 )
+from typer.testing import CliRunner
+
 from tic.application.ai.narrator import Narrator
 from tic.application.redaction import Redactor
 from tic.cli.commands import sweep as sweep_cmd
 from tic.infra.config import AIConfig, PathsConfig, Settings
-
 
 runner = CliRunner(mix_stderr=False)
 
@@ -70,10 +70,17 @@ def _settings_ai_disabled(tmp_path) -> Settings:
 
 
 class _DummyCache:
-    def get(self, *_): return None
-    def set(self, *_): pass
-    def purge_expired(self): return 0
-    def close(self): pass
+    def get(self, *_):
+        return None
+
+    def set(self, *_):
+        pass
+
+    def purge_expired(self):
+        return 0
+
+    def close(self):
+        pass
 
 
 def _feed_and_logs(tmp_path: Path) -> tuple[Path, Path]:
@@ -89,9 +96,8 @@ def _feed_and_logs(tmp_path: Path) -> tuple[Path, Path]:
 
 def _mock_narrator_factory(mock_ai):
     def _build(_settings, *, secret_store=None, audit=None):
-        return Narrator(
-            mock_ai, Redactor(PLACEHOLDER_HMAC_32B), audit=audit, max_input_chars=8000
-        )
+        return Narrator(mock_ai, Redactor(PLACEHOLDER_HMAC_32B), audit=audit, max_input_chars=8000)
+
     return _build
 
 
@@ -115,19 +121,25 @@ def _patched(tmp_path, *, ai_enabled: bool, mock_ai_factory_or_none):
     )
     with contextlib.ExitStack() as stack:
         stack.enter_context(patch("tic.cli.commands.sweep.load_settings", return_value=settings))
-        stack.enter_context(patch("tic.cli.commands.sweep.configure_logging", lambda *a, **kw: None))
+        stack.enter_context(
+            patch("tic.cli.commands.sweep.configure_logging", lambda *a, **kw: None)
+        )
         stack.enter_context(patch("tic.cli.commands.sweep.build_secret_store", return_value=None))
         stack.enter_context(patch("tic.cli.commands.sweep.build_cache", return_value=_DummyCache()))
         stack.enter_context(patch("tic.cli.commands.sweep.build_providers", return_value=[]))
-        stack.enter_context(patch(
-            "tic.cli.commands.sweep.build_narrator",
-            side_effect=narrator_builder,
-        ))
+        stack.enter_context(
+            patch(
+                "tic.cli.commands.sweep.build_narrator",
+                side_effect=narrator_builder,
+            )
+        )
         stack.enter_context(patch("tic.cli.commands.sweep.close_all"))
-        stack.enter_context(patch(
-            "tic.cli.commands.sweep.try_load_redaction_hmac",
-            return_value=PLACEHOLDER_HMAC_32B,
-        ))
+        stack.enter_context(
+            patch(
+                "tic.cli.commands.sweep.try_load_redaction_hmac",
+                return_value=PLACEHOLDER_HMAC_32B,
+            )
+        )
         yield
 
 
@@ -161,16 +173,21 @@ def _parse_json_after_logs(stdout: str) -> dict:
 def test_cli_with_ai_mock_renders_narrative_in_json(tmp_path):
     feed, logs = _feed_and_logs(tmp_path)
     with _patched(
-        tmp_path, ai_enabled=True,
+        tmp_path,
+        ai_enabled=True,
         mock_ai_factory_or_none=_mock_narrator_factory(MockAIProvider()),
     ):
         result = runner.invoke(
             sweep_cmd.app,
             [
-                "--feed", str(feed),
-                "--logs", str(logs),
-                "--format", "json",
-                "--fail-on", "critical",
+                "--feed",
+                str(feed),
+                "--logs",
+                str(logs),
+                "--format",
+                "json",
+                "--fail-on",
+                "critical",
                 "--with-ai",
             ],
         )
@@ -189,16 +206,21 @@ def test_cli_with_ai_mock_renders_narrative_in_json(tmp_path):
 def test_cli_with_ai_mock_renders_advisory_in_markdown(tmp_path):
     feed, logs = _feed_and_logs(tmp_path)
     with _patched(
-        tmp_path, ai_enabled=True,
+        tmp_path,
+        ai_enabled=True,
         mock_ai_factory_or_none=_mock_narrator_factory(MockAIProvider()),
     ):
         result = runner.invoke(
             sweep_cmd.app,
             [
-                "--feed", str(feed),
-                "--logs", str(logs),
-                "--format", "markdown",
-                "--fail-on", "critical",
+                "--feed",
+                str(feed),
+                "--logs",
+                str(logs),
+                "--format",
+                "markdown",
+                "--fail-on",
+                "critical",
                 "--with-ai",
             ],
         )
@@ -219,10 +241,14 @@ def test_cli_with_ai_when_disabled_warns_and_succeeds(tmp_path):
         result = runner.invoke(
             sweep_cmd.app,
             [
-                "--feed", str(feed),
-                "--logs", str(logs),
-                "--format", "json",
-                "--fail-on", "critical",
+                "--feed",
+                str(feed),
+                "--logs",
+                str(logs),
+                "--format",
+                "json",
+                "--fail-on",
+                "critical",
                 "--with-ai",
             ],
         )
@@ -244,12 +270,23 @@ def test_cli_ai_on_and_off_share_exit_code_for_same_severity_gate(tmp_path):
     feed, logs = _feed_and_logs(tmp_path)
 
     with _patched(
-        tmp_path, ai_enabled=True,
+        tmp_path,
+        ai_enabled=True,
         mock_ai_factory_or_none=_mock_narrator_factory(MockAIProvider()),
     ):
         on = runner.invoke(
             sweep_cmd.app,
-            ["--feed", str(feed), "--logs", str(logs), "--format", "json", "--fail-on", "info", "--with-ai"],
+            [
+                "--feed",
+                str(feed),
+                "--logs",
+                str(logs),
+                "--format",
+                "json",
+                "--fail-on",
+                "info",
+                "--with-ai",
+            ],
         )
 
     with _patched(tmp_path, ai_enabled=False, mock_ai_factory_or_none=None):
@@ -269,12 +306,23 @@ def test_cli_ai_on_and_off_share_exit_code_for_same_severity_gate(tmp_path):
 def test_cli_with_ai_timeout_does_not_break_sweep(tmp_path):
     feed, logs = _feed_and_logs(tmp_path)
     with _patched(
-        tmp_path, ai_enabled=True,
+        tmp_path,
+        ai_enabled=True,
         mock_ai_factory_or_none=_mock_narrator_factory(MockAIProviderTimeout()),
     ):
         result = runner.invoke(
             sweep_cmd.app,
-            ["--feed", str(feed), "--logs", str(logs), "--format", "json", "--fail-on", "critical", "--with-ai"],
+            [
+                "--feed",
+                str(feed),
+                "--logs",
+                str(logs),
+                "--format",
+                "json",
+                "--fail-on",
+                "critical",
+                "--with-ai",
+            ],
         )
     assert result.exit_code == 0, result.output
     parsed = _parse_json_after_logs(result.stdout)

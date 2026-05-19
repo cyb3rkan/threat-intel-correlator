@@ -14,6 +14,7 @@ Security contract:
 - CSV export passes every cell through escape_csv_cell and uses
   csv.QUOTE_ALL.
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -21,10 +22,10 @@ import csv
 import io
 import shutil
 import uuid
-from collections.abc import Iterator
+from collections.abc import Callable, Iterator
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, Callable, Literal, TextIO
+from typing import Any, Literal, TextIO
 
 from tic.adapters.audit.hash_chain import HashChainAuditLogger
 from tic.adapters.log_sources.file_source import NdjsonFileLogSource
@@ -104,6 +105,7 @@ class SweepResult:
 # Settings + AI feasibility
 # ---------------------------------------------------------------------------
 
+
 def get_settings() -> Settings:
     """Thin wrapper around load_settings for the UI layer."""
     return load_settings()
@@ -122,6 +124,7 @@ def ai_supported(settings: Settings) -> bool:
 # ---------------------------------------------------------------------------
 # Upload staging (path-guarded, working_dir confined)
 # ---------------------------------------------------------------------------
+
 
 def _safe_extension(filename: str | None) -> str:
     if not filename:
@@ -178,10 +181,12 @@ def cleanup_upload_dir(upload_dir: Path) -> None:
 # Sweep execution
 # ---------------------------------------------------------------------------
 
+
 def _resolve_profile(settings: Settings) -> ScoringProfile:
     if settings.scoring_profile_path is None:
         return ScoringProfile(version="1.0.0")
     import yaml  # local import keeps cold-import footprint small
+
     with open(settings.scoring_profile_path, encoding="utf-8") as f:
         return ScoringProfile.model_validate(yaml.safe_load(f))
 
@@ -321,6 +326,7 @@ def run_sweep(req: SweepRequest, settings: Settings | None = None) -> SweepResul
 # Exports
 # ---------------------------------------------------------------------------
 
+
 def to_json_bytes(
     findings: list[Finding],
     mode: OutputModeName,
@@ -404,6 +410,7 @@ def to_csv_bytes(
 # ---------------------------------------------------------------------------
 # Public-safe row projection for the table
 # ---------------------------------------------------------------------------
+
 
 def public_rows(
     findings: list[Finding],

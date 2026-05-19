@@ -20,7 +20,7 @@ httpx = { extras = ["http2"], version = "^0.27" }
 keyring = "^25.2"
 pyahocorasick = "^2.1"
 defusedxml = "^0.7.1"
-idna = "^3.7"
+idna = ">=3.15"
 python-dateutil = "^2.9"
 tenacity = "^8.3"
 stix2-patterns = "^2.0.0"
@@ -29,13 +29,14 @@ plotly = "^6.7.0"
 fastapi = { version = "^0.115", optional = true }
 uvicorn = { version = "^0.30", optional = true }
 python-multipart = { version = "^0.0.9", optional = true }
+urllib3 = ">=2.7.0"
 
 [tool.poetry.extras]
 ui = ["streamlit"]
 api = ["fastapi", "uvicorn", "python-multipart"]
 
 [tool.poetry.group.dev.dependencies]
-pytest = "^8.2"
+pytest = ">=9.0.3"
 pytest-asyncio = "^0.23"
 pytest-cov = "^5.0"
 hypothesis = "^6.100"

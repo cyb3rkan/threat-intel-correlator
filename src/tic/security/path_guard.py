@@ -4,6 +4,7 @@
 Security: all file operations in the project MUST go through safe_resolve_within.
 CI lint rule enforces usage.
 """
+
 from __future__ import annotations
 
 import os
@@ -39,9 +40,7 @@ def safe_resolve_within(
 
     cand_str = os.fspath(candidate)
     if "\x00" in cand_str:
-        raise SecurityViolationError(
-            "NUL byte in path", user_message="Invalid path."
-        )
+        raise SecurityViolationError("NUL byte in path", user_message="Invalid path.")
 
     # Resolve relative to allowed_root if not absolute
     raw = Path(cand_str)

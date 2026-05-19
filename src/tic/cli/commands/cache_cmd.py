@@ -1,9 +1,12 @@
 # src/tic/cli/commands/cache_cmd.py
 """`tic cache` — purge expired entries and show stats."""
+
 from __future__ import annotations
+
 import sqlite3
-from pathlib import Path
+
 import typer
+
 from tic.cli._wiring import build_cache
 from tic.domain.errors import TICError
 from tic.infra.config import load_settings
@@ -28,7 +31,7 @@ def purge(yes: bool = typer.Option(False, "--yes")) -> None:
             except typer.Abort:
                 typer.echo("Aborted.", err=True)
                 raise typer.Exit(code=int(ExitCode.SUCCESS))
-        cache   = build_cache(settings)
+        cache = build_cache(settings)
         removed = cache.purge_expired()  # type: ignore[attr-defined]
         typer.echo(f"Purged {removed} expired entries.")
         raise typer.Exit(code=int(ExitCode.SUCCESS))
@@ -57,7 +60,12 @@ def stats() -> None:
         try:
             total = int(conn.execute("SELECT COUNT(*) FROM entries").fetchone()[0])
             typer.echo(f"Total entries: {total}")
-            by_ns = {row[0]: int(row[1]) for row in conn.execute("SELECT namespace, COUNT(*) FROM entries GROUP BY namespace ORDER BY namespace")}
+            by_ns = {
+                row[0]: int(row[1])
+                for row in conn.execute(
+                    "SELECT namespace, COUNT(*) FROM entries GROUP BY namespace ORDER BY namespace"
+                )
+            }
             if by_ns:
                 typer.echo("By namespace:")
                 for ns, cnt in by_ns.items():

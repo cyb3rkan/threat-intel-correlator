@@ -4,14 +4,13 @@
 Security: untrusted feed/log content must never write raw escape sequences
 to the user's terminal (hijack, clear screen, hyperlink injection).
 """
+
 from __future__ import annotations
 
 import re
 
 # Matches CSI, OSC, DCS, SOS, PM, APC and standalone ESC sequences.
-_ANSI_RE = re.compile(
-    r"\x1b(?:\[[0-?]*[ -/]*[@-~]|\][^\x07\x1b]*(?:\x07|\x1b\\)|[@-Z\\-_])"
-)
+_ANSI_RE = re.compile(r"\x1b(?:\[[0-?]*[ -/]*[@-~]|\][^\x07\x1b]*(?:\x07|\x1b\\)|[@-Z\\-_])")
 
 _CONTROL_RE = re.compile(r"[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]")
 

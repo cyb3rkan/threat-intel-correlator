@@ -7,6 +7,7 @@ is not in the configured allowlist — this is the second gate (after the
 wiring-level enabled/endpoint_allowlist short-circuit) that keeps a
 misconfigured deployment from talking to an arbitrary host.
 """
+
 from __future__ import annotations
 
 import pytest
@@ -104,13 +105,11 @@ def test_http_client_config_does_not_lower_tls_for_ai() -> None:
 
 
 import asyncio  # noqa: E402
-
-import pytest  # noqa: E402
+from datetime import UTC, datetime  # noqa: E402
 
 from tic.application.redaction import Redactor  # noqa: E402
 from tic.domain.finding import Finding, Severity  # noqa: E402
 from tic.domain.ioc import IOC, IOCType  # noqa: E402
-from datetime import datetime, timezone  # noqa: E402
 
 
 class _SlowHttp:
@@ -135,12 +134,12 @@ def _redacted_finding():
         severity=Severity.MEDIUM,
         profile_hash="a" * 64,
         correlation_id="cid",
-        created_at=datetime(2025, 1, 1, tzinfo=timezone.utc),
+        created_at=datetime(2025, 1, 1, tzinfo=UTC),
     )
     return Redactor(b"0" * 32).redact(f)
 
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_request_timeout_returns_none() -> None:
     """If the HTTP call exceeds `cfg.request_timeout_seconds`, the adapter
     must return None and never propagate the asyncio.TimeoutError."""
@@ -168,7 +167,7 @@ class _RaisingHttp:
         raise RuntimeError("simulated transport failure")
 
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_transport_failure_returns_none() -> None:
     """Any non-timeout transport error from SafeHttpClient must also
     surface as None — the sweep keeps going without a narrative."""

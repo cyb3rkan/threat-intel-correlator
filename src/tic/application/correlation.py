@@ -1,5 +1,6 @@
 # src/tic/application/correlation.py
 """IOC × log correlation. Boundary validators compiled once per IOC (fix #13)."""
+
 from __future__ import annotations
 
 import hashlib
@@ -17,16 +18,16 @@ from tic.infra.logging import get_logger
 _log = get_logger(__name__)
 
 _BOUNDARY_TEMPLATES: dict[IOCType, str] = {
-    IOCType.IP:         r"(?:^|(?<=[^0-9.])){{V}}(?=$|[^0-9.])",
-    IOCType.DOMAIN:     r"(?:^|(?<=[^a-zA-Z0-9.\-])){{V}}(?=$|[^a-zA-Z0-9.\-])",
-    IOCType.HASH_MD5:   r"(?:^|(?<=[^0-9a-f])){{V}}(?=$|[^0-9a-f])",
-    IOCType.HASH_SHA1:  r"(?:^|(?<=[^0-9a-f])){{V}}(?=$|[^0-9a-f])",
-    IOCType.HASH_SHA256:r"(?:^|(?<=[^0-9a-f])){{V}}(?=$|[^0-9a-f])",
-    IOCType.HASH_SHA512:r"(?:^|(?<=[^0-9a-f])){{V}}(?=$|[^0-9a-f])",
+    IOCType.IP: r"(?:^|(?<=[^0-9.])){{V}}(?=$|[^0-9.])",
+    IOCType.DOMAIN: r"(?:^|(?<=[^a-zA-Z0-9.\-])){{V}}(?=$|[^a-zA-Z0-9.\-])",
+    IOCType.HASH_MD5: r"(?:^|(?<=[^0-9a-f])){{V}}(?=$|[^0-9a-f])",
+    IOCType.HASH_SHA1: r"(?:^|(?<=[^0-9a-f])){{V}}(?=$|[^0-9a-f])",
+    IOCType.HASH_SHA256: r"(?:^|(?<=[^0-9a-f])){{V}}(?=$|[^0-9a-f])",
+    IOCType.HASH_SHA512: r"(?:^|(?<=[^0-9a-f])){{V}}(?=$|[^0-9a-f])",
 }
 
 
-def _compile_boundary(ioc: IOC) -> "re.Pattern[str] | None":
+def _compile_boundary(ioc: IOC) -> re.Pattern[str] | None:
     tmpl = _BOUNDARY_TEMPLATES.get(ioc.ioc_type)
     if tmpl is None:
         return None
@@ -35,23 +36,23 @@ def _compile_boundary(ioc: IOC) -> "re.Pattern[str] | None":
 
 @dataclass(frozen=True)
 class _Entry:
-    ioc:      IOC
-    boundary: "re.Pattern[str] | None"
+    ioc: IOC
+    boundary: re.Pattern[str] | None
 
 
 def _boundary_ok(entry: _Entry, text: str, end_idx: int) -> bool:
     if entry.boundary is None:
         return True
-    start   = max(0, end_idx - len(entry.ioc.value) + 1)
-    snippet = text[max(0, start - 1): end_idx + 2]
+    start = max(0, end_idx - len(entry.ioc.value) + 1)
+    snippet = text[max(0, start - 1) : end_idx + 2]
     return entry.boundary.search(snippet) is not None
 
 
 @dataclass(frozen=True)
 class LogLine:
-    source:    str
+    source: str
     timestamp: datetime
-    text:      str
+    text: str
 
 
 class Correlator:
@@ -82,7 +83,12 @@ class Correlator:
                 if not _boundary_ok(entry, line.text, end_idx):
                     continue
                 seen.add(entry.ioc.value)
-                yield entry.ioc, Match(
-                    log_source=line.source, field="text",
-                    timestamp=line.timestamp, raw_line_hash=line_hash,
+                yield (
+                    entry.ioc,
+                    Match(
+                        log_source=line.source,
+                        field="text",
+                        timestamp=line.timestamp,
+                        raw_line_hash=line_hash,
+                    ),
                 )

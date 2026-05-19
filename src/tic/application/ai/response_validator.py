@@ -16,18 +16,18 @@ Phase B hardening:
 - Validation NEVER changes score, severity, exit_code, or any other
   deterministic Finding field — it only filters the AI-attached narrative.
 """
+
 from __future__ import annotations
 
 import json
 import re
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import Literal
 
 from pydantic import ValidationError
 
 from tic.domain.finding import AINarrative
 from tic.infra.logging import get_logger
-
 
 # Closed set of rejection reasons surfaced by `parse_and_classify`. The
 # Gemini adapter uses these to decide whether a retry is safe: only
@@ -36,8 +36,8 @@ from tic.infra.logging import get_logger
 # *something* from suggested_actions but the rest of the narrative is
 # still valid — no retry needed.
 ParseRejection = Literal[
-    "invalid_json",   # raw text was not valid JSON (or not an object)
-    "schema",         # JSON was valid but pydantic AINarrative rejected it
+    "invalid_json",  # raw text was not valid JSON (or not an object)
+    "schema",  # JSON was valid but pydantic AINarrative rejected it
 ]
 
 _log = get_logger(__name__)
@@ -82,8 +82,8 @@ _COMMAND_TOOL_TOKENS: tuple[str, ...] = (
 # below); offensive nmap usage covered by `_OFFENSIVE_PHRASES`
 # ("run nmap", "execute nmap") still drops.
 _COMMAND_STANDALONE_TOKENS: tuple[str, ...] = (
-    r"\bsh\b",       # /bin/sh-style invocation
-    r"\bnc\b",       # netcat
+    r"\bsh\b",  # /bin/sh-style invocation
+    r"\bnc\b",  # netcat
     r"\bnetcat\b",
     r"\bncat\b",
 )
@@ -141,9 +141,9 @@ _NMAP_OFFENSIVE_RE = re.compile(
     r"run\s+nmap"
     r"|execute\s+nmap"
     r"|launch\s+nmap"
-    r"|nmap\s+-[a-z0-9]"           # any flag, e.g. -A, -sV, -Pn
-    r"|nmap\s+\d{1,3}(?:\.\d{1,3}){3}"   # nmap <ipv4>
-    r"|nmap\s+[\w.-]+/\d{1,3}\b"   # nmap <cidr>
+    r"|nmap\s+-[a-z0-9]"  # any flag, e.g. -A, -sV, -Pn
+    r"|nmap\s+\d{1,3}(?:\.\d{1,3}){3}"  # nmap <ipv4>
+    r"|nmap\s+[\w.-]+/\d{1,3}\b"  # nmap <cidr>
     r")"
 )
 
@@ -204,9 +204,7 @@ def _filter_suggested_actions(obj: dict) -> tuple[dict, int]:
 # ---------------------------------------------------------------------------
 
 
-def parse_and_classify(
-    raw: str, *, model: str
-) -> tuple[AINarrative | None, ParseRejection | None]:
+def parse_and_classify(raw: str, *, model: str) -> tuple[AINarrative | None, ParseRejection | None]:
     """Like `parse_and_validate`, but also returns *why* it rejected.
 
     Reasons are limited to the closed `ParseRejection` set — never the
@@ -245,7 +243,7 @@ def parse_and_classify(
         _log.warning("ai_response_actions_filtered", dropped=dropped)
 
     obj["model"] = model
-    obj["generated_at"] = datetime.now(timezone.utc).isoformat()
+    obj["generated_at"] = datetime.now(UTC).isoformat()
     obj["ai_origin"] = True  # hardcoded
 
     try:

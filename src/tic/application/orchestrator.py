@@ -18,12 +18,13 @@ result with `ai_narrative=null`. Selection happens BEFORE narration so
 score/severity/enrichments/exit_code/above_threshold are unchanged
 regardless of the cap.
 """
+
 from __future__ import annotations
 
 import asyncio
 import uuid
 from collections.abc import Iterable
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import TextIO
 
 from tic.application.correlation import Correlator, LogLine
@@ -73,13 +74,13 @@ class SweepOrchestrator:
         provider_concurrency: int = _DEFAULT_CONCURRENCY,
         ai_max_findings_per_sweep: int = _DEFAULT_AI_CAP,
     ) -> None:
-        self._providers    = providers
-        self._narrator     = narrator
-        self._profile      = profile
-        self._audit        = audit
-        self._min_sev      = min_severity_exit
-        self._max_matches  = max_matches_per_ioc
-        self._sem          = asyncio.Semaphore(max(1, provider_concurrency))
+        self._providers = providers
+        self._narrator = narrator
+        self._profile = profile
+        self._audit = audit
+        self._min_sev = min_severity_exit
+        self._max_matches = max_matches_per_ioc
+        self._sem = asyncio.Semaphore(max(1, provider_concurrency))
         # Phase C: AI invocation cap. Clamped to [1, 100] at AIConfig level;
         # we re-clamp here for defensive callers that bypass AIConfig.
         self._ai_cap = max(1, min(100, int(ai_max_findings_per_sweep)))
@@ -101,7 +102,9 @@ class SweepOrchestrator:
         render_fn,
     ) -> ExitCode:
         cid = new_correlation_id()
-        self._audit.append("sweep_start", {"correlation_id": cid, "profile_hash": self._profile.profile_hash()})
+        self._audit.append(
+            "sweep_start", {"correlation_id": cid, "profile_hash": self._profile.profile_hash()}
+        )
 
         # Materialise once; max_iocs_per_feed enforced by parsers upstream.
         ioc_list = list(iocs)
@@ -130,23 +133,34 @@ class SweepOrchestrator:
         above_threshold = False
 
         for ioc in ioc_list:
-            key     = (ioc.ioc_type.value, ioc.value)
+            key = (ioc.ioc_type.value, ioc.value)
             matches = matches_by_ioc.get(key, [])
             if not matches:
                 continue
 
-            results     = await asyncio.gather(*[self._enrich_one(p, ioc) for p in self._providers])
+            results = await asyncio.gather(*[self._enrich_one(p, ioc) for p in self._providers])
             enrichments = [r for r in results if r is not None]
 
-            score    = compute_score(ScoringInputs(ioc_confidence=ioc.confidence, matches=tuple(matches), enrichments=tuple(enrichments)), self._profile)
+            score = compute_score(
+                ScoringInputs(
+                    ioc_confidence=ioc.confidence,
+                    matches=tuple(matches),
+                    enrichments=tuple(enrichments),
+                ),
+                self._profile,
+            )
             severity = self._profile.severity_for_score(score)
 
             finding = Finding(
-                finding_id=str(uuid.uuid4()), ioc=ioc,
-                matches=matches[:1000], enrichments=enrichments[:16],
-                score=score, severity=severity,
+                finding_id=str(uuid.uuid4()),
+                ioc=ioc,
+                matches=matches[:1000],
+                enrichments=enrichments[:16],
+                score=score,
+                severity=severity,
                 profile_hash=self._profile.profile_hash(),
-                correlation_id=cid, created_at=datetime.now(timezone.utc),
+                correlation_id=cid,
+                created_at=datetime.now(UTC),
             )
 
             findings.append(finding)

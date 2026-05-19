@@ -1,5 +1,6 @@
 # src/tic/adapters/secrets/keyring_store.py
 """OS keyring-backed secret store. No plaintext fallback in MVP."""
+
 from __future__ import annotations
 
 import keyring

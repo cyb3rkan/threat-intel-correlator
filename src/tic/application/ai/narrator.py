@@ -27,6 +27,7 @@ Allowed audit event types (closed set):
 
 Audit-write failures are isolated — the sweep continues.
 """
+
 from __future__ import annotations
 
 import time

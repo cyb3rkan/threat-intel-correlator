@@ -19,13 +19,13 @@ This deliberately does NOT exercise rendering. A future Phase may add a
 real Streamlit test via `streamlit.testing` once the harness cost is
 justified; documented in docs/OPERATIONS.md.
 """
+
 from __future__ import annotations
 
 import ast
 import pathlib
 
 import pytest
-
 
 _APP_PATH = pathlib.Path(__file__).resolve().parents[2] / "src" / "tic" / "ui" / "app.py"
 
@@ -70,7 +70,7 @@ def test_streamlit_app_does_not_use_dangerous_html_helpers() -> None:
         pytest.skip("Streamlit app does not currently reference ai_narrative")
     window = 5  # lines before/after
     for idx in indices:
-        chunk = "\n".join(lines[max(0, idx - window): idx + window + 1])
-        assert "unsafe_allow_html=True" not in chunk, (
-            f"unsafe_allow_html near ai_narrative at line {idx + 1}"
-        )
+        chunk = "\n".join(lines[max(0, idx - window) : idx + window + 1])
+        assert (
+            "unsafe_allow_html=True" not in chunk
+        ), f"unsafe_allow_html near ai_narrative at line {idx + 1}"

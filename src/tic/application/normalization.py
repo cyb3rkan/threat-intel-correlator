@@ -4,6 +4,7 @@
 Precedence order matters: hashes before hex-looking strings, IPs before domains
 containing digits, etc. All comparisons are locale-invariant (ASCII fold).
 """
+
 from __future__ import annotations
 
 import ipaddress
@@ -14,6 +15,7 @@ import idna
 
 from tic.domain.errors import InputValidationError
 from tic.domain.ioc import IOC, IOCType
+
 
 # ASCII-only locale-invariant lowercase
 def _ascii_lower(s: str) -> str:

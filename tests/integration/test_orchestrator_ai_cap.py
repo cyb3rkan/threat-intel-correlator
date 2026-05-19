@@ -6,18 +6,18 @@ The SweepOrchestrator must only invoke the narrator on the top-N findings
 list with `ai_narrative=None`. Score, severity, exit_code, and
 above_threshold must NOT depend on the cap.
 """
+
 from __future__ import annotations
 
 import asyncio
 import io
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 from tic.application.correlation import LogLine
 from tic.application.normalization import make_ioc
 from tic.application.orchestrator import SweepOrchestrator
 from tic.application.scoring import ScoringProfile
 from tic.domain.finding import AINarrative, Finding, Severity
-from tic.infra.exit_codes import ExitCode
 
 
 def _profile() -> ScoringProfile:
@@ -25,7 +25,7 @@ def _profile() -> ScoringProfile:
 
 
 def _ts() -> datetime:
-    return datetime(2024, 1, 1, 12, 0, 0, tzinfo=timezone.utc)
+    return datetime(2024, 1, 1, 12, 0, 0, tzinfo=UTC)
 
 
 class _NullAudit:
@@ -44,16 +44,18 @@ class _RecordingNarrator:
 
     async def narrate(self, finding: Finding) -> Finding:
         self.calls.append(finding.finding_id)
-        return finding.model_copy(update={
-            "ai_narrative": AINarrative(
-                summary="ok",
-                false_positive_likelihood="low",
-                suggested_actions=["Review in SIEM"],
-                confidence="medium",
-                model="placeholder",
-                generated_at=datetime(2025, 1, 1, tzinfo=timezone.utc),
-            )
-        })
+        return finding.model_copy(
+            update={
+                "ai_narrative": AINarrative(
+                    summary="ok",
+                    false_positive_likelihood="low",
+                    suggested_actions=["Review in SIEM"],
+                    confidence="medium",
+                    model="placeholder",
+                    generated_at=datetime(2025, 1, 1, tzinfo=UTC),
+                )
+            }
+        )
 
 
 def _render_collect(findings, out):
@@ -69,10 +71,7 @@ def _make_iocs_and_logs(n: int):
     """Build `n` distinct IOC/log pairs that each correlate exactly once.
     Each IOC's confidence varies so the deterministic ranking has work to do."""
     iocs = [make_ioc(f"1.2.3.{i}", source="test", confidence=50 + (i % 51)) for i in range(n)]
-    logs = [
-        LogLine(source="fw", timestamp=_ts(), text=f"blocked 1.2.3.{i}")
-        for i in range(n)
-    ]
+    logs = [LogLine(source="fw", timestamp=_ts(), text=f"blocked 1.2.3.{i}") for i in range(n)]
     return iocs, logs
 
 
@@ -92,7 +91,10 @@ def test_more_than_cap_findings_only_top_n_get_ai() -> None:
     narrator = _RecordingNarrator()
     audit = _NullAudit()
     orch = SweepOrchestrator(
-        providers=[], narrator=narrator, profile=_profile(), audit=audit,
+        providers=[],
+        narrator=narrator,
+        profile=_profile(),
+        audit=audit,
         min_severity_exit=Severity.INFO,
         ai_max_findings_per_sweep=25,
     )
@@ -121,12 +123,17 @@ def test_selection_is_deterministic_across_runs() -> None:
     for _ in range(2):
         narrator = _RecordingNarrator()
         orch = SweepOrchestrator(
-            providers=[], narrator=narrator, profile=_profile(),
-            audit=_NullAudit(), min_severity_exit=Severity.INFO,
+            providers=[],
+            narrator=narrator,
+            profile=_profile(),
+            audit=_NullAudit(),
+            min_severity_exit=Severity.INFO,
             ai_max_findings_per_sweep=10,
         )
         _run(orch, iocs, logs)
-        runs.append(sorted(narrator.calls))  # finding_ids are uuids → just check the set/order pattern
+        runs.append(
+            sorted(narrator.calls)
+        )  # finding_ids are uuids → just check the set/order pattern
 
     # Same inputs → same number of selections.
     assert len(runs[0]) == len(runs[1]) == 10
@@ -138,8 +145,11 @@ def test_cap_does_not_affect_score_severity_exit_code() -> None:
     # Run with AI on, cap=25.
     audit_on = _NullAudit()
     orch_on = SweepOrchestrator(
-        providers=[], narrator=_RecordingNarrator(), profile=_profile(),
-        audit=audit_on, min_severity_exit=Severity.INFO,
+        providers=[],
+        narrator=_RecordingNarrator(),
+        profile=_profile(),
+        audit=audit_on,
+        min_severity_exit=Severity.INFO,
         ai_max_findings_per_sweep=25,
     )
     on = _run(orch_on, iocs, logs)
@@ -149,8 +159,11 @@ def test_cap_does_not_affect_score_severity_exit_code() -> None:
     # Run with AI on, cap=5.
     audit_low = _NullAudit()
     orch_low = SweepOrchestrator(
-        providers=[], narrator=_RecordingNarrator(), profile=_profile(),
-        audit=audit_low, min_severity_exit=Severity.INFO,
+        providers=[],
+        narrator=_RecordingNarrator(),
+        profile=_profile(),
+        audit=audit_low,
+        min_severity_exit=Severity.INFO,
         ai_max_findings_per_sweep=5,
     )
     low = _run(orch_low, iocs, logs)
@@ -159,18 +172,18 @@ def test_cap_does_not_affect_score_severity_exit_code() -> None:
     # Run with AI off.
     audit_off = _NullAudit()
     orch_off = SweepOrchestrator(
-        providers=[], narrator=None, profile=_profile(),
-        audit=audit_off, min_severity_exit=Severity.INFO,
+        providers=[],
+        narrator=None,
+        profile=_profile(),
+        audit=audit_off,
+        min_severity_exit=Severity.INFO,
     )
     off = _run(orch_off, iocs, logs)
     above_off = next(e for e in audit_off.events if e[0] == "sweep_end")[1]["above_threshold"]
 
     # All three runs produce the same Finding set (modulo ai_narrative).
     def core(fs: list[Finding]):
-        return sorted(
-            (f.ioc.value, f.score, f.severity.value, len(f.matches))
-            for f in fs
-        )
+        return sorted((f.ioc.value, f.score, f.severity.value, len(f.matches)) for f in fs)
 
     assert core(on) == core(low) == core(off)
     assert above_on == above_low == above_off
@@ -181,8 +194,11 @@ def test_cap_under_finding_count_runs_all() -> None:
     iocs, logs = _make_iocs_and_logs(8)
     narrator = _RecordingNarrator()
     orch = SweepOrchestrator(
-        providers=[], narrator=narrator, profile=_profile(),
-        audit=_NullAudit(), min_severity_exit=Severity.INFO,
+        providers=[],
+        narrator=narrator,
+        profile=_profile(),
+        audit=_NullAudit(),
+        min_severity_exit=Severity.INFO,
         ai_max_findings_per_sweep=25,
     )
     findings = _run(orch, iocs, logs)
@@ -196,8 +212,11 @@ def test_cap_with_no_narrator_records_zero_skipped() -> None:
     iocs, logs = _make_iocs_and_logs(30)
     audit = _NullAudit()
     orch = SweepOrchestrator(
-        providers=[], narrator=None, profile=_profile(),
-        audit=audit, min_severity_exit=Severity.INFO,
+        providers=[],
+        narrator=None,
+        profile=_profile(),
+        audit=audit,
+        min_severity_exit=Severity.INFO,
         ai_max_findings_per_sweep=5,
     )
     _run(orch, iocs, logs)

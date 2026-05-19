@@ -8,11 +8,12 @@ to the JSON export without parsing narrative text inside a spreadsheet.
 
 CSV injection mitigation (`escape_csv_cell`) still applies to every cell.
 """
+
 from __future__ import annotations
 
 import csv
 import io
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 from tic.domain.finding import AINarrative, Finding, Severity
 from tic.domain.ioc import IOC, IOCType
@@ -26,7 +27,7 @@ def _narrative(summary: str = "Defensive summary.") -> AINarrative:
         suggested_actions=["Review in SIEM"],
         confidence="medium",
         model="placeholder-model",
-        generated_at=datetime(2025, 1, 1, tzinfo=timezone.utc),
+        generated_at=datetime(2025, 1, 1, tzinfo=UTC),
     )
 
 
@@ -40,7 +41,7 @@ def _finding(*, narrative: AINarrative | None = None) -> Finding:
         severity=Severity.HIGH,
         profile_hash="a" * 64,
         correlation_id="cid",
-        created_at=datetime(2025, 1, 1, tzinfo=timezone.utc),
+        created_at=datetime(2025, 1, 1, tzinfo=UTC),
         ai_narrative=narrative,
     )
 
@@ -80,7 +81,7 @@ def test_csv_still_omits_ai_summary_and_actions() -> None:
         suggested_actions=[action],
         confidence="medium",
         model="placeholder-model",
-        generated_at=datetime(2025, 1, 1, tzinfo=timezone.utc),
+        generated_at=datetime(2025, 1, 1, tzinfo=UTC),
     )
     text = to_csv_bytes([_finding(narrative=n)], "analyst").decode()
     assert summary not in text
@@ -102,7 +103,7 @@ def test_csv_injection_protection_still_applies_to_other_cells() -> None:
         severity=Severity.MEDIUM,
         profile_hash="b" * 64,
         correlation_id="cid",
-        created_at=datetime(2025, 1, 1, tzinfo=timezone.utc),
+        created_at=datetime(2025, 1, 1, tzinfo=UTC),
     )
     text = to_csv_bytes([f], "analyst").decode()
     # IOC value cell should be prefixed with a single-quote per

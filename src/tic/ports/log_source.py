@@ -1,5 +1,6 @@
 # src/tic/ports/log_source.py
 """Log source port. Streams normalized LogLine objects for correlation."""
+
 from __future__ import annotations
 
 from collections.abc import Iterator

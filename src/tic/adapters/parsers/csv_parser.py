@@ -1,5 +1,6 @@
 # src/tic/adapters/parsers/csv_parser.py
 """CSV IOC feed parser. Streams rows; enforces file size cap."""
+
 from __future__ import annotations
 
 import csv

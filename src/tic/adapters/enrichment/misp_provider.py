@@ -1,11 +1,12 @@
 # src/tic/adapters/enrichment/misp_provider.py
 """MISP enrichment provider via /attributes/restSearch."""
+
 from __future__ import annotations
 
 import json
 import os
 import re
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from urllib.parse import urlparse
 
 from pydantic import BaseModel, ConfigDict, Field, ValidationError
@@ -50,6 +51,7 @@ def _debug_cache_raw_enabled() -> bool:
     """Local debug flag. Default OFF — raw provider bytes never persisted to disk."""
     return os.environ.get("TIC_DEBUG_CACHE_RAW", "").strip().lower() in {"1", "true", "yes", "on"}
 
+
 _MISP_TYPE_MAP: dict[str, str] = {
     IOCType.IP.value: "ip-dst",
     IOCType.DOMAIN.value: "domain",
@@ -93,7 +95,9 @@ class MispProvider(EnrichmentProvider):
     name = "misp"
     supported_types = frozenset(_MISP_TYPE_MAP.keys())
 
-    def __init__(self, http: SafeHttpClient, cache: Cache, api_key: bytes, endpoint: str, ttl_seconds: int) -> None:
+    def __init__(
+        self, http: SafeHttpClient, cache: Cache, api_key: bytes, endpoint: str, ttl_seconds: int
+    ) -> None:
         if not endpoint.startswith("https://"):
             raise ValueError("MISP endpoint must use https")
         self._http = http
@@ -129,7 +133,9 @@ class MispProvider(EnrichmentProvider):
                 # overwrites the corrupt row via cache.set().
 
         url = f"{self._endpoint}/attributes/restSearch"
-        body = json.dumps({"returnFormat": "json", "type": misp_type, "value": ioc.value, "limit": 50}).encode()
+        body = json.dumps(
+            {"returnFormat": "json", "type": misp_type, "value": ioc.value, "limit": 50}
+        ).encode()
         headers = {
             "Authorization": self._api_key.decode("utf-8"),
             "Accept": "application/json",
@@ -198,7 +204,7 @@ class MispProvider(EnrichmentProvider):
             provider=self.name,
             reputation_score=reputation,
             tags=frozenset(categories),
-            fetched_at=datetime.now(timezone.utc),
+            fetched_at=datetime.now(UTC),
             ttl_seconds=self._ttl,
             truncated_raw=truncated_raw,
         )

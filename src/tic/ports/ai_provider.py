@@ -1,5 +1,6 @@
 # src/tic/ports/ai_provider.py
 """AI provider port — abstract interface for narrative generation."""
+
 from __future__ import annotations
 
 from typing import Protocol

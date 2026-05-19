@@ -1,8 +1,10 @@
 # tests/unit/test_output_modes.py
 """Tests for PublicFinding output modes."""
+
 from __future__ import annotations
-from datetime import datetime, timezone
-import pytest
+
+from datetime import UTC, datetime
+
 from tic.domain.finding import Finding, OutputMode, Severity
 from tic.domain.ioc import IOC, IOCType
 
@@ -11,9 +13,13 @@ def _finding(value="evil.example.com", ioc_type=IOCType.DOMAIN):
     return Finding(
         finding_id="00000000-0000-4000-8000-000000000000",
         ioc=IOC(value=value, ioc_type=ioc_type, source="test"),
-        matches=[], enrichments=[], score=60, severity=Severity.MEDIUM,
-        profile_hash="a" * 64, correlation_id="cid",
-        created_at=datetime(2025, 1, 1, tzinfo=timezone.utc),
+        matches=[],
+        enrichments=[],
+        score=60,
+        severity=Severity.MEDIUM,
+        profile_hash="a" * 64,
+        correlation_id="cid",
+        created_at=datetime(2025, 1, 1, tzinfo=UTC),
     )
 
 
@@ -29,7 +35,9 @@ def test_summary_mode_truncates():
 
 
 def test_hash_mode_produces_hmac_prefix():
-    pub = _finding("1.2.3.4", ioc_type=IOCType.IP).to_public(mode=OutputMode.HASH, hmac_key=b"k" * 32)
+    pub = _finding("1.2.3.4", ioc_type=IOCType.IP).to_public(
+        mode=OutputMode.HASH, hmac_key=b"k" * 32
+    )
     assert pub.ioc_value.startswith("hmac:")
 
 

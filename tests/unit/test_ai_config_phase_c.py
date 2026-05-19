@@ -1,9 +1,9 @@
 # tests/unit/test_ai_config_phase_c.py
 """Phase C: freeze the new AIConfig defaults and validation bounds."""
+
 from __future__ import annotations
 
 import pytest
-
 from pydantic import ValidationError
 
 from tic.infra.config import AIConfig

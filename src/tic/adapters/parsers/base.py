@@ -14,6 +14,7 @@ Security contract (MANDATORY for all implementations):
 - On malformed rows, log at DEBUG/WARNING and skip; do not raise unless the
   underlying file is unusable.
 """
+
 from __future__ import annotations
 
 from collections.abc import Iterator

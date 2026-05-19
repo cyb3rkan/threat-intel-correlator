@@ -11,7 +11,9 @@ from tic.domain.errors import AuthError, ConfigError
 
 
 def test_returns_bytes_on_success():
-    with patch("tic.adapters.secrets.keyring_store.keyring.get_password", return_value="supersecret"):
+    with patch(
+        "tic.adapters.secrets.keyring_store.keyring.get_password", return_value="supersecret"
+    ):
         store = KeyringSecretStore()
         result = store.get("my-service", "my-user")
     assert result == b"supersecret"
@@ -46,4 +48,4 @@ def test_encodes_unicode_correctly():
     with patch("tic.adapters.secrets.keyring_store.keyring.get_password", return_value="şifrém"):
         store = KeyringSecretStore()
         result = store.get("svc", "usr")
-    assert result == "şifrém".encode("utf-8")
+    assert result == "şifrém".encode()

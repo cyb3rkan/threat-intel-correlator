@@ -4,6 +4,7 @@
 Stable contract: downstream CI pipelines depend on these values.
 Do not reorder. Additions must get new numbers only.
 """
+
 from __future__ import annotations
 
 from enum import IntEnum

@@ -15,6 +15,7 @@ Covers:
   email) map to the right MISP type and parse a hit.
 - The Authorization header value is never serialised into log records.
 """
+
 from __future__ import annotations
 
 import json
@@ -36,13 +37,14 @@ def _blob(records: list[dict]) -> str:
     """Flatten a structlog capture list to a single string for substring checks."""
     return json.dumps(records, default=str)
 
+
 _MISP_HOST = "misp.internal"
 _MISP_URL = f"https://{_MISP_HOST}"
 _RESTSEARCH = f"{_MISP_URL}/attributes/restSearch"
 _SECRET_KEY = b"super-secret-misp-key-DO-NOT-LEAK"
 
 
-@pytest.fixture
+@pytest.fixture()
 def cache(tmp_path: Path) -> SqliteCache:
     return SqliteCache(tmp_path / "cache.db", allowed_root=tmp_path)
 
@@ -63,6 +65,7 @@ def _ip() -> IOC:
 # verify_tls behavior
 # ---------------------------------------------------------------------------
 
+
 def test_safe_client_defaults_verify_tls_true():
     c = SafeHttpClient(HttpClientConfig())
     assert c.verify_tls is True
@@ -80,16 +83,25 @@ def test_safe_client_other_instances_unaffected_by_misp_opt_out():
     assert other_http.verify_tls is True
 
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 @respx.mock
 async def test_misp_request_allowed_when_verify_tls_false(cache):
     """verify_tls=false on the MISP client must not block requests."""
     respx.post(_RESTSEARCH).mock(
         return_value=httpx.Response(
             200,
-            json={"response": {"Attribute": [
-                {"to_ids": True, "category": "Network activity", "type": "ip-dst", "value": "8.8.8.8"}
-            ]}},
+            json={
+                "response": {
+                    "Attribute": [
+                        {
+                            "to_ids": True,
+                            "category": "Network activity",
+                            "type": "ip-dst",
+                            "value": "8.8.8.8",
+                        }
+                    ]
+                }
+            },
         )
     )
     provider = MispProvider(_http(verify_tls=False), cache, _SECRET_KEY, _MISP_URL, 60)
@@ -103,7 +115,8 @@ async def test_misp_request_allowed_when_verify_tls_false(cache):
 # NetworkError diagnostics
 # ---------------------------------------------------------------------------
 
-@pytest.mark.asyncio
+
+@pytest.mark.asyncio()
 @respx.mock
 async def test_self_signed_tls_failure_yields_no_enrichment_and_logs_diagnostics(cache):
     """Simulate the symptom: httpx raises ConnectError on TLS verification.
@@ -140,7 +153,7 @@ async def test_self_signed_tls_failure_yields_no_enrichment_and_logs_diagnostics
     assert "/attributes/restSearch" not in blob
 
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 @respx.mock
 async def test_network_error_log_redacts_authorization_from_exception_text(cache):
     """Even if an exception message embeds an Authorization header, we strip it."""
@@ -173,16 +186,31 @@ def test_sanitize_reason_strips_urls_and_auth_pairs():
 # Response parsing
 # ---------------------------------------------------------------------------
 
-@pytest.mark.asyncio
+
+@pytest.mark.asyncio()
 @respx.mock
 async def test_parses_canonical_restsearch_response(cache):
     respx.post(_RESTSEARCH).mock(
         return_value=httpx.Response(
             200,
-            json={"response": {"Attribute": [
-                {"to_ids": False, "category": "Payload delivery", "type": "ip-dst", "value": "8.8.8.8"},
-                {"to_ids": True,  "category": "Network activity", "type": "ip-dst", "value": "8.8.8.8"},
-            ]}},
+            json={
+                "response": {
+                    "Attribute": [
+                        {
+                            "to_ids": False,
+                            "category": "Payload delivery",
+                            "type": "ip-dst",
+                            "value": "8.8.8.8",
+                        },
+                        {
+                            "to_ids": True,
+                            "category": "Network activity",
+                            "type": "ip-dst",
+                            "value": "8.8.8.8",
+                        },
+                    ]
+                }
+            },
         )
     )
     provider = MispProvider(_http(), cache, _SECRET_KEY, _MISP_URL, 60)
@@ -193,7 +221,7 @@ async def test_parses_canonical_restsearch_response(cache):
     assert {"Network activity", "Payload delivery"}.issubset(r.tags)
 
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 @respx.mock
 async def test_empty_attribute_list_silently_returns_none(cache):
     respx.post(_RESTSEARCH).mock(
@@ -211,27 +239,38 @@ async def test_empty_attribute_list_silently_returns_none(cache):
         (IOCType.URL, "https://bad.example.com/x", "url"),
         (IOCType.HASH_MD5, "d41d8cd98f00b204e9800998ecf8427e", "md5"),
         (IOCType.HASH_SHA1, "da39a3ee5e6b4b0d3255bfef95601890afd80709", "sha1"),
-        (IOCType.HASH_SHA256,
-         "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
-         "sha256"),
-        (IOCType.HASH_SHA512,
-         "cf83e1357eefb8bdf1542850d66d8007d620e4050b5715dc83f4a921d36ce9ce47"
-         "d0d13c5d85f2b0ff8318d2877eec2f63b931bd47417a81a538327af927da3e",
-         "sha512"),
+        (
+            IOCType.HASH_SHA256,
+            "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "sha256",
+        ),
+        (
+            IOCType.HASH_SHA512,
+            "cf83e1357eefb8bdf1542850d66d8007d620e4050b5715dc83f4a921d36ce9ce47"
+            "d0d13c5d85f2b0ff8318d2877eec2f63b931bd47417a81a538327af927da3e",
+            "sha512",
+        ),
         (IOCType.EMAIL, "user@example.com", "email"),
     ],
 )
-@pytest.mark.asyncio
-async def test_all_supported_ioc_types_round_trip(
-    cache, ioc_type, ioc_value, misp_type
-):
+@pytest.mark.asyncio()
+async def test_all_supported_ioc_types_round_trip(cache, ioc_type, ioc_value, misp_type):
     with respx.mock() as router:
         route = router.post(_RESTSEARCH).mock(
             return_value=httpx.Response(
                 200,
-                json={"response": {"Attribute": [
-                    {"to_ids": True, "category": "Network activity", "type": misp_type, "value": ioc_value}
-                ]}},
+                json={
+                    "response": {
+                        "Attribute": [
+                            {
+                                "to_ids": True,
+                                "category": "Network activity",
+                                "type": misp_type,
+                                "value": ioc_value,
+                            }
+                        ]
+                    }
+                },
             )
         )
         provider = MispProvider(_http(), cache, _SECRET_KEY, _MISP_URL, 60)
@@ -250,15 +289,20 @@ async def test_all_supported_ioc_types_round_trip(
 # Authorization header must never reach logs
 # ---------------------------------------------------------------------------
 
-@pytest.mark.asyncio
+
+@pytest.mark.asyncio()
 @respx.mock
 async def test_authorization_header_never_logged_even_on_success(cache):
     respx.post(_RESTSEARCH).mock(
         return_value=httpx.Response(
             200,
-            json={"response": {"Attribute": [
-                {"to_ids": True, "category": "x", "type": "ip-dst", "value": "8.8.8.8"}
-            ]}},
+            json={
+                "response": {
+                    "Attribute": [
+                        {"to_ids": True, "category": "x", "type": "ip-dst", "value": "8.8.8.8"}
+                    ]
+                }
+            },
         )
     )
     provider = MispProvider(_http(), cache, _SECRET_KEY, _MISP_URL, 60)
@@ -273,7 +317,8 @@ async def test_authorization_header_never_logged_even_on_success(cache):
 # Additional NetworkError shapes
 # ---------------------------------------------------------------------------
 
-@pytest.mark.asyncio
+
+@pytest.mark.asyncio()
 @respx.mock
 async def test_read_timeout_surfaces_exception_type_in_log(cache):
     respx.post(_RESTSEARCH).mock(side_effect=httpx.ReadTimeout("slow lab"))
@@ -284,7 +329,7 @@ async def test_read_timeout_surfaces_exception_type_in_log(cache):
     assert failed and failed[0]["exception_type"] == "ReadTimeout"
 
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_network_error_without_cause_does_not_crash_logger(cache, monkeypatch):
     """If SafeHttpClient raises a NetworkError with no __cause__ set, the
     provider must still log a sensible exception_type (the NetworkError
@@ -308,7 +353,8 @@ async def test_network_error_without_cause_does_not_crash_logger(cache, monkeypa
 # Status problem logs include diagnostic fields (auth/rate-limit/error)
 # ---------------------------------------------------------------------------
 
-@pytest.mark.asyncio
+
+@pytest.mark.asyncio()
 @respx.mock
 async def test_auth_403_logs_diagnostics_without_leaking_key(cache):
     respx.post(_RESTSEARCH).mock(return_value=httpx.Response(403, json={"error": "forbidden"}))
@@ -327,7 +373,7 @@ async def test_auth_403_logs_diagnostics_without_leaking_key(cache):
     assert "Authorization" not in blob
 
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 @respx.mock
 async def test_rate_limit_429_logs_diagnostics(cache):
     respx.post(_RESTSEARCH).mock(return_value=httpx.Response(429))
@@ -341,7 +387,7 @@ async def test_rate_limit_429_logs_diagnostics(cache):
     assert rate[0]["verify_tls"] is True
 
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 @respx.mock
 async def test_500_status_logs_diagnostics(cache):
     respx.post(_RESTSEARCH).mock(return_value=httpx.Response(500))
@@ -358,7 +404,8 @@ async def test_500_status_logs_diagnostics(cache):
 # Corrupt cache entry no longer floods the log
 # ---------------------------------------------------------------------------
 
-@pytest.mark.asyncio
+
+@pytest.mark.asyncio()
 @respx.mock
 async def test_corrupt_cache_entry_warns_only_once(cache):
     # Plant a junk row that will fail EnrichmentResult.model_validate_json
@@ -366,9 +413,13 @@ async def test_corrupt_cache_entry_warns_only_once(cache):
     respx.post(_RESTSEARCH).mock(
         return_value=httpx.Response(
             200,
-            json={"response": {"Attribute": [
-                {"to_ids": True, "category": "x", "type": "ip-dst", "value": "8.8.8.8"}
-            ]}},
+            json={
+                "response": {
+                    "Attribute": [
+                        {"to_ids": True, "category": "x", "type": "ip-dst", "value": "8.8.8.8"}
+                    ]
+                }
+            },
         )
     )
     provider = MispProvider(_http(), cache, _SECRET_KEY, _MISP_URL, 60)

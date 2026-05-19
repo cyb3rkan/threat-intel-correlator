@@ -1,5 +1,6 @@
 # src/tic/domain/errors.py
 """Domain exceptions. user_message is safe to show; internal_details is debug-only."""
+
 from __future__ import annotations
 
 

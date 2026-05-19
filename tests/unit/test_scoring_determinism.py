@@ -1,9 +1,7 @@
 # tests/unit/test_scoring_determinism.py
 from __future__ import annotations
 
-import hashlib
-import json
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 from tic.application.scoring import ScoringInputs, ScoringProfile, compute_score
 from tic.domain.finding import EnrichmentResult, Match
@@ -16,7 +14,7 @@ def _inputs() -> ScoringInputs:
             Match(
                 log_source="file.ndjson",
                 field="text",
-                timestamp=datetime(2025, 1, 1, tzinfo=timezone.utc),
+                timestamp=datetime(2025, 1, 1, tzinfo=UTC),
                 raw_line_hash="a" * 64,
             ),
         ),
@@ -25,7 +23,7 @@ def _inputs() -> ScoringInputs:
                 provider="abuseipdb",
                 reputation_score=85,
                 tags=frozenset({"TR"}),
-                fetched_at=datetime(2025, 1, 2, tzinfo=timezone.utc),
+                fetched_at=datetime(2025, 1, 2, tzinfo=UTC),
                 ttl_seconds=3600,
             ),
         ),

@@ -1,9 +1,9 @@
 # tests/integration/test_safe_client.py
 from __future__ import annotations
 
+import httpx
 import pytest
 import respx
-import httpx
 
 from tic.adapters.http.safe_client import SafeHttpClient
 from tic.domain.errors import SecurityViolationError
@@ -19,12 +19,10 @@ def _cfg() -> HttpClientConfig:
     )
 
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 @respx.mock
 async def test_get_returns_response():
-    respx.get("https://example.com/api").mock(
-        return_value=httpx.Response(200, content=b"ok")
-    )
+    respx.get("https://example.com/api").mock(return_value=httpx.Response(200, content=b"ok"))
     client = SafeHttpClient(_cfg())
     resp = await client.get("https://example.com/api")
     assert resp.status_code == 200
@@ -32,19 +30,17 @@ async def test_get_returns_response():
     await client.aclose()
 
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 @respx.mock
 async def test_post_returns_response():
-    respx.post("https://example.com/api").mock(
-        return_value=httpx.Response(201, content=b"created")
-    )
+    respx.post("https://example.com/api").mock(return_value=httpx.Response(201, content=b"created"))
     client = SafeHttpClient(_cfg())
     resp = await client.post("https://example.com/api", content=b"data")
     assert resp.status_code == 201
     await client.aclose()
 
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_rejects_http_scheme():
     client = SafeHttpClient(_cfg())
     with pytest.raises(SecurityViolationError):
@@ -52,7 +48,7 @@ async def test_rejects_http_scheme():
     await client.aclose()
 
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_rejects_private_ip():
     client = SafeHttpClient(_cfg())
     with pytest.raises(SecurityViolationError):
@@ -60,11 +56,13 @@ async def test_rejects_private_ip():
     await client.aclose()
 
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 @respx.mock
 async def test_headers_lowercased():
     respx.get("https://example.com/").mock(
-        return_value=httpx.Response(200, headers={"Content-Type": "application/json"}, content=b"{}")
+        return_value=httpx.Response(
+            200, headers={"Content-Type": "application/json"}, content=b"{}"
+        )
     )
     client = SafeHttpClient(_cfg())
     resp = await client.get("https://example.com/")

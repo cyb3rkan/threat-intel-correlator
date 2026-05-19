@@ -1,5 +1,6 @@
 # src/tic/ports/enrichment_provider.py
 """Enrichment provider port. Adapters implement this protocol."""
+
 from __future__ import annotations
 
 from typing import Protocol

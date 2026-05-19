@@ -5,10 +5,11 @@ Audit events are metadata-only. Bodies, completions, headers, API keys,
 raw IOC values, and raw provider payloads must never appear in any audit
 event. Audit-write failures must be isolated from the sweep.
 """
+
 from __future__ import annotations
 
 import json
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 import pytest
 
@@ -16,7 +17,6 @@ from tic.application.ai.narrator import Narrator
 from tic.application.redaction import Redactor
 from tic.domain.finding import AINarrative, Finding, Severity
 from tic.domain.ioc import IOC, IOCType
-
 
 _HMAC_KEY = b"0" * 32
 _RAW_IOC = "very-secret-raw-ioc.example"
@@ -32,7 +32,7 @@ def _finding() -> Finding:
         severity=Severity.MEDIUM,
         profile_hash="a" * 64,
         correlation_id="cid",
-        created_at=datetime(2025, 1, 1, tzinfo=timezone.utc),
+        created_at=datetime(2025, 1, 1, tzinfo=UTC),
     )
 
 
@@ -43,7 +43,7 @@ def _narrative() -> AINarrative:
         suggested_actions=["Review in SIEM"],
         confidence="medium",
         model="placeholder-model",
-        generated_at=datetime(2025, 1, 1, tzinfo=timezone.utc),
+        generated_at=datetime(2025, 1, 1, tzinfo=UTC),
     )
 
 
@@ -99,7 +99,7 @@ class _ExceptionAI:
 # ---------------------------------------------------------------------------
 
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_success_emits_invoke_and_attached_events() -> None:
     audit = _RecordingAudit()
     narrator = Narrator(_OkAI(), Redactor(_HMAC_KEY), audit=audit)
@@ -128,7 +128,7 @@ async def test_success_emits_invoke_and_attached_events() -> None:
 # ---------------------------------------------------------------------------
 
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_timeout_emits_response_rejected_with_reason_timeout() -> None:
     audit = _RecordingAudit()
     narrator = Narrator(_TimeoutAI(), Redactor(_HMAC_KEY), audit=audit)
@@ -139,7 +139,7 @@ async def test_timeout_emits_response_rejected_with_reason_timeout() -> None:
     assert audit.events[1][1]["reason"] == "timeout"
 
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_provider_exception_emits_provider_error_reason() -> None:
     audit = _RecordingAudit()
     narrator = Narrator(_ExceptionAI(), Redactor(_HMAC_KEY), audit=audit)
@@ -150,7 +150,7 @@ async def test_provider_exception_emits_provider_error_reason() -> None:
     assert audit.events[1][1]["reason"] == "provider_error"
 
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_none_narrative_emits_schema_reason() -> None:
     """A None return from the provider (validator dropped it, non-2xx,
     etc.) surfaces as a coarse `schema` rejection in the audit chain."""
@@ -168,7 +168,7 @@ async def test_none_narrative_emits_schema_reason() -> None:
 # ---------------------------------------------------------------------------
 
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_audit_payloads_never_contain_secrets_or_raw_ioc() -> None:
     """Sweep every Narrator path with an audit sink, then assert that no
     event payload anywhere contains a secret-looking field, the raw IOC,
@@ -180,7 +180,7 @@ async def test_audit_payloads_never_contain_secrets_or_raw_ioc() -> None:
         "X-API-Key",
         _RAW_IOC,
         "Defensive narrative.",  # completion body must not be audited
-        "Review in SIEM",        # suggested action text must not be audited
+        "Review in SIEM",  # suggested action text must not be audited
         "placeholder-not-a-real-token",
     )
 
@@ -193,7 +193,7 @@ async def test_audit_payloads_never_contain_secrets_or_raw_ioc() -> None:
             assert s not in blob, f"{s!r} leaked into audit for {ai_class.__name__}"
 
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_audit_event_types_are_from_closed_set() -> None:
     """Audit event types must come from the closed allowlist so downstream
     consumers can render localised labels safely. Phase C added
@@ -212,11 +212,16 @@ async def test_audit_event_types_are_from_closed_set() -> None:
             assert ev in allowed, f"unknown audit event: {ev!r}"
 
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_rejection_reason_is_from_closed_set() -> None:
     allowed_reasons = {
-        "schema", "timeout", "non_2xx", "filtered",
-        "invalid_json", "provider_error", "redaction_failed",
+        "schema",
+        "timeout",
+        "non_2xx",
+        "filtered",
+        "invalid_json",
+        "provider_error",
+        "redaction_failed",
         "input_too_large",  # Phase C addition
     }
     for ai_class in (_NoneAI, _TimeoutAI, _ExceptionAI):
@@ -233,7 +238,7 @@ async def test_rejection_reason_is_from_closed_set() -> None:
 # ---------------------------------------------------------------------------
 
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_failing_audit_sink_does_not_break_success_path() -> None:
     narrator = Narrator(_OkAI(), Redactor(_HMAC_KEY), audit=_AlwaysFailAudit())
     result = await narrator.narrate(_finding())
@@ -242,7 +247,7 @@ async def test_failing_audit_sink_does_not_break_success_path() -> None:
     assert result.ai_narrative.summary == "Defensive narrative."
 
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_failing_audit_sink_does_not_break_failure_path() -> None:
     narrator = Narrator(_TimeoutAI(), Redactor(_HMAC_KEY), audit=_AlwaysFailAudit())
     result = await narrator.narrate(_finding())
@@ -257,7 +262,7 @@ async def test_failing_audit_sink_does_not_break_failure_path() -> None:
 # ---------------------------------------------------------------------------
 
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_narrator_works_without_audit_param() -> None:
     """Pre-Phase-B call sites that did not pass `audit=` must keep working."""
     narrator = Narrator(_OkAI(), Redactor(_HMAC_KEY))

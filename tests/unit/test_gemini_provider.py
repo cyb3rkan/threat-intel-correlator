@@ -14,11 +14,12 @@ Scope:
 No real HTTP, no real keys. The fake HTTP client records request headers
 and asserts the API key is never put in the URL.
 """
+
 from __future__ import annotations
 
 import asyncio
 import json
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 import pytest
 from pydantic import ValidationError
@@ -30,10 +31,8 @@ from tic.domain.finding import Finding, Severity
 from tic.domain.ioc import IOC, IOCType
 from tic.infra.config import AIConfig, HttpClientConfig, PathsConfig, Settings
 
-
 _ENDPOINT = (
-    "https://generativelanguage.googleapis.com/v1beta/models/"
-    "gemini-2.5-flash:generateContent"
+    "https://generativelanguage.googleapis.com/v1beta/models/" "gemini-2.5-flash:generateContent"
 )
 _RAW_IOC = "very-secret-ioc-value.example"
 _API_KEY = b"placeholder-not-a-real-key-12345"
@@ -68,7 +67,7 @@ def _redacted_finding():
         severity=Severity.MEDIUM,
         profile_hash="a" * 64,
         correlation_id="cid",
-        created_at=datetime(2025, 1, 1, tzinfo=timezone.utc),
+        created_at=datetime(2025, 1, 1, tzinfo=UTC),
     )
     return Redactor(b"0" * 32).redact(f)
 
@@ -150,10 +149,12 @@ def test_build_narrator_selects_gemini_when_configured(tmp_path) -> None:
         tmp_path,
         _ai_cfg([_ENDPOINT], provider="gemini"),
     )
-    store = _Store({
-        ("tic-ai", "default"): _API_KEY,
-        ("tic-redaction-hmac", "default"): b"0" * 32,
-    })
+    store = _Store(
+        {
+            ("tic-ai", "default"): _API_KEY,
+            ("tic-redaction-hmac", "default"): b"0" * 32,
+        }
+    )
     narrator = _wiring.build_narrator(s, secret_store=store)
     assert narrator is not None
     # The narrator's wrapped AI provider is the Gemini adapter.
@@ -169,10 +170,12 @@ def test_build_narrator_defaults_to_openai_compat(tmp_path) -> None:
         model="placeholder",
     )
     s = _settings_with_ai(tmp_path, cfg)
-    store = _Store({
-        ("tic-ai", "default"): _API_KEY,
-        ("tic-redaction-hmac", "default"): b"0" * 32,
-    })
+    store = _Store(
+        {
+            ("tic-ai", "default"): _API_KEY,
+            ("tic-redaction-hmac", "default"): b"0" * 32,
+        }
+    )
     narrator = _wiring.build_narrator(s, secret_store=store)
     assert narrator is not None
     assert narrator._ai.__class__.__name__ == "OpenAICompatProvider"
@@ -247,11 +250,9 @@ def _gemini_success_body(text: str) -> dict:
     }
 
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_narrate_returns_ai_narrative_on_valid_response() -> None:
-    http = _RecordingHttp(
-        _FakeHttpResponse(200, _gemini_success_body(_VALID_NARRATIVE_JSON))
-    )
+    http = _RecordingHttp(_FakeHttpResponse(200, _gemini_success_body(_VALID_NARRATIVE_JSON)))
     cfg = _ai_cfg([_ENDPOINT])
     provider = GeminiProvider(http=http, cfg=cfg, api_key=_API_KEY, endpoint=_ENDPOINT)
     out = await provider.narrate(_redacted_finding())
@@ -265,13 +266,11 @@ async def test_narrate_returns_ai_narrative_on_valid_response() -> None:
     assert "verify with EDR" in out.suggested_actions
 
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_narrate_request_shape_uses_header_key_not_query() -> None:
     """API key must be in `x-goog-api-key` header. Query-string keys leak
     into access logs."""
-    http = _RecordingHttp(
-        _FakeHttpResponse(200, _gemini_success_body(_VALID_NARRATIVE_JSON))
-    )
+    http = _RecordingHttp(_FakeHttpResponse(200, _gemini_success_body(_VALID_NARRATIVE_JSON)))
     cfg = _ai_cfg([_ENDPOINT])
     provider = GeminiProvider(http=http, cfg=cfg, api_key=_API_KEY, endpoint=_ENDPOINT)
     await provider.narrate(_redacted_finding())
@@ -289,13 +288,11 @@ async def test_narrate_request_shape_uses_header_key_not_query() -> None:
     assert "Authorization" not in http.last_headers
 
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_narrate_request_body_has_response_schema_and_mime() -> None:
     """The whole point of this adapter — force strict-JSON via the
     generateContent generationConfig."""
-    http = _RecordingHttp(
-        _FakeHttpResponse(200, _gemini_success_body(_VALID_NARRATIVE_JSON))
-    )
+    http = _RecordingHttp(_FakeHttpResponse(200, _gemini_success_body(_VALID_NARRATIVE_JSON)))
     cfg = _ai_cfg([_ENDPOINT])
     provider = GeminiProvider(http=http, cfg=cfg, api_key=_API_KEY, endpoint=_ENDPOINT)
     await provider.narrate(_redacted_finding())
@@ -332,7 +329,7 @@ async def test_narrate_request_body_has_response_schema_and_mime() -> None:
 # ---------------------------------------------------------------------------
 
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_narrate_returns_none_on_non_2xx() -> None:
     http = _RecordingHttp(_FakeHttpResponse(503, b"upstream unavailable"))
     cfg = _ai_cfg([_ENDPOINT])
@@ -340,7 +337,7 @@ async def test_narrate_returns_none_on_non_2xx() -> None:
     assert await provider.narrate(_redacted_finding()) is None
 
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_narrate_returns_none_on_malformed_outer_envelope() -> None:
     """The generateContent envelope is missing `candidates`; adapter must
     fail-safe to None rather than KeyError up the stack."""
@@ -350,7 +347,7 @@ async def test_narrate_returns_none_on_malformed_outer_envelope() -> None:
     assert await provider.narrate(_redacted_finding()) is None
 
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_narrate_returns_none_when_envelope_text_is_not_json() -> None:
     """Envelope shape is right but the model text is broken JSON. The
     existing parse_and_validate rejects it; we return None."""
@@ -361,7 +358,7 @@ async def test_narrate_returns_none_when_envelope_text_is_not_json() -> None:
     assert await provider.narrate(_redacted_finding()) is None
 
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_narrate_returns_none_when_envelope_text_violates_schema() -> None:
     """Valid JSON but missing required AINarrative fields → None."""
     body = _gemini_success_body('{"summary": "ok"}')
@@ -371,7 +368,7 @@ async def test_narrate_returns_none_when_envelope_text_violates_schema() -> None
     assert await provider.narrate(_redacted_finding()) is None
 
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_narrate_returns_none_when_outer_body_not_json() -> None:
     http = _RecordingHttp(_FakeHttpResponse(200, b"not-json-at-all"))
     cfg = _ai_cfg([_ENDPOINT])
@@ -388,7 +385,7 @@ class _SlowHttp:
         raise AssertionError("unreachable — adapter must time out first")
 
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_narrate_returns_none_on_timeout() -> None:
     cfg = _ai_cfg([_ENDPOINT], request_timeout_seconds=1.0)
     provider = GeminiProvider(
@@ -405,12 +402,10 @@ class _RaisingHttp:
         raise RuntimeError("simulated transport failure")
 
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_narrate_returns_none_on_transport_failure() -> None:
     cfg = _ai_cfg([_ENDPOINT])
-    provider = GeminiProvider(
-        http=_RaisingHttp(), cfg=cfg, api_key=_API_KEY, endpoint=_ENDPOINT
-    )
+    provider = GeminiProvider(http=_RaisingHttp(), cfg=cfg, api_key=_API_KEY, endpoint=_ENDPOINT)
     assert await provider.narrate(_redacted_finding()) is None
 
 
@@ -419,16 +414,14 @@ async def test_narrate_returns_none_on_transport_failure() -> None:
 # ---------------------------------------------------------------------------
 
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_no_secret_or_prompt_in_logs_on_success(caplog) -> None:
     """Capture all log output across the happy path; assert it carries
     none of: API key bytes, raw IOC, prompt body, completion body, the
     raw response JSON."""
     import logging
 
-    http = _RecordingHttp(
-        _FakeHttpResponse(200, _gemini_success_body(_VALID_NARRATIVE_JSON))
-    )
+    http = _RecordingHttp(_FakeHttpResponse(200, _gemini_success_body(_VALID_NARRATIVE_JSON)))
     cfg = _ai_cfg([_ENDPOINT])
     provider = GeminiProvider(http=http, cfg=cfg, api_key=_API_KEY, endpoint=_ENDPOINT)
     with caplog.at_level(logging.DEBUG):
@@ -443,7 +436,7 @@ async def test_no_secret_or_prompt_in_logs_on_success(caplog) -> None:
     assert "x-goog-api-key" not in blob
 
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_no_secret_or_prompt_in_logs_on_failure(caplog) -> None:
     import logging
 
@@ -484,17 +477,19 @@ class _ScriptedHttp:
         return self._responses.pop(0)
 
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_retry_succeeds_on_second_attempt_after_invalid_json() -> None:
     """First response: outer envelope ok, inner text is not strict JSON
     (the observed Gemini failure mode). Second response: valid JSON.
     The adapter should retry exactly once and return the AINarrative."""
     bad = _gemini_success_body('{"summary": "unterminated string')
     good = _gemini_success_body(_VALID_NARRATIVE_JSON)
-    http = _ScriptedHttp([
-        _FakeHttpResponse(200, bad),
-        _FakeHttpResponse(200, good),
-    ])
+    http = _ScriptedHttp(
+        [
+            _FakeHttpResponse(200, bad),
+            _FakeHttpResponse(200, good),
+        ]
+    )
     retried: list[tuple[str, str]] = []
 
     def on_retry(fid: str, reason: str) -> None:
@@ -502,7 +497,10 @@ async def test_retry_succeeds_on_second_attempt_after_invalid_json() -> None:
 
     cfg = _ai_cfg([_ENDPOINT])
     provider = GeminiProvider(
-        http=http, cfg=cfg, api_key=_API_KEY, endpoint=_ENDPOINT,
+        http=http,
+        cfg=cfg,
+        api_key=_API_KEY,
+        endpoint=_ENDPOINT,
         audit_retry=on_retry,
     )
     out = await provider.narrate(_redacted_finding())
@@ -516,27 +514,30 @@ async def test_retry_succeeds_on_second_attempt_after_invalid_json() -> None:
     # maxOutputTokens. We assert both signals directly on the second
     # request body.
     second_body = json.loads(http.calls[1][2])
-    assert second_body["generationConfig"]["maxOutputTokens"] == max(
-        64, cfg.max_output_tokens // 2
-    )
+    assert second_body["generationConfig"]["maxOutputTokens"] == max(64, cfg.max_output_tokens // 2)
     sys_text = second_body["systemInstruction"]["parts"][0]["text"]
     assert "RETRY" in sys_text
 
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_retry_on_schema_violation_and_then_success() -> None:
     """First response is valid JSON but missing required fields → schema
     reason → retry. Second response is valid → success."""
     bad = _gemini_success_body('{"summary": "ok"}')
     good = _gemini_success_body(_VALID_NARRATIVE_JSON)
-    http = _ScriptedHttp([
-        _FakeHttpResponse(200, bad),
-        _FakeHttpResponse(200, good),
-    ])
+    http = _ScriptedHttp(
+        [
+            _FakeHttpResponse(200, bad),
+            _FakeHttpResponse(200, good),
+        ]
+    )
     retried: list[tuple[str, str]] = []
     cfg = _ai_cfg([_ENDPOINT])
     provider = GeminiProvider(
-        http=http, cfg=cfg, api_key=_API_KEY, endpoint=_ENDPOINT,
+        http=http,
+        cfg=cfg,
+        api_key=_API_KEY,
+        endpoint=_ENDPOINT,
         audit_retry=lambda f, r: retried.append((f, r)),
     )
 
@@ -546,14 +547,17 @@ async def test_retry_on_schema_violation_and_then_success() -> None:
     assert retried == [("00000000-0000-4000-8000-000000000000", "schema")]
 
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_no_retry_on_non_2xx() -> None:
     """A 503 is a hard failure, not a parse failure — never retry."""
     http = _ScriptedHttp([_FakeHttpResponse(503, b"upstream unavailable")])
     retried: list = []
     cfg = _ai_cfg([_ENDPOINT])
     provider = GeminiProvider(
-        http=http, cfg=cfg, api_key=_API_KEY, endpoint=_ENDPOINT,
+        http=http,
+        cfg=cfg,
+        api_key=_API_KEY,
+        endpoint=_ENDPOINT,
         audit_retry=lambda f, r: retried.append((f, r)),
     )
     assert await provider.narrate(_redacted_finding()) is None
@@ -561,7 +565,7 @@ async def test_no_retry_on_non_2xx() -> None:
     assert retried == []
 
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_no_retry_on_timeout() -> None:
     cfg = _ai_cfg([_ENDPOINT], request_timeout_seconds=1.0)
     retried: list = []
@@ -576,19 +580,22 @@ async def test_no_retry_on_timeout() -> None:
     assert retried == []
 
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_no_retry_on_transport_failure() -> None:
     retried: list = []
     cfg = _ai_cfg([_ENDPOINT])
     provider = GeminiProvider(
-        http=_RaisingHttp(), cfg=cfg, api_key=_API_KEY, endpoint=_ENDPOINT,
+        http=_RaisingHttp(),
+        cfg=cfg,
+        api_key=_API_KEY,
+        endpoint=_ENDPOINT,
         audit_retry=lambda f, r: retried.append((f, r)),
     )
     assert await provider.narrate(_redacted_finding()) is None
     assert retried == []
 
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_no_retry_on_unsafe_actions_only() -> None:
     """Defensive-action filter removed entries but the rest of the
     narrative validated. This is success-with-fewer-actions, not a
@@ -597,8 +604,8 @@ async def test_no_retry_on_unsafe_actions_only() -> None:
         "summary": "test",
         "false_positive_likelihood": "low",
         "suggested_actions": [
-            "run nmap -A 10.0.0.0/24",   # filtered as unsafe
-            "review in SIEM",            # passes through
+            "run nmap -A 10.0.0.0/24",  # filtered as unsafe
+            "review in SIEM",  # passes through
         ],
         "confidence": "medium",
     }
@@ -607,7 +614,10 @@ async def test_no_retry_on_unsafe_actions_only() -> None:
     retried: list = []
     cfg = _ai_cfg([_ENDPOINT])
     provider = GeminiProvider(
-        http=http, cfg=cfg, api_key=_API_KEY, endpoint=_ENDPOINT,
+        http=http,
+        cfg=cfg,
+        api_key=_API_KEY,
+        endpoint=_ENDPOINT,
         audit_retry=lambda f, r: retried.append((f, r)),
     )
     out = await provider.narrate(_redacted_finding())
@@ -618,20 +628,25 @@ async def test_no_retry_on_unsafe_actions_only() -> None:
     assert retried == []
 
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_retry_then_second_failure_returns_none() -> None:
     """If retry still produces malformed JSON, fail-safe to None.
     No third attempt — strictly one-shot."""
     bad1 = _gemini_success_body('{"summary": "broken')
-    bad2 = _gemini_success_body('still broken')
-    http = _ScriptedHttp([
-        _FakeHttpResponse(200, bad1),
-        _FakeHttpResponse(200, bad2),
-    ])
+    bad2 = _gemini_success_body("still broken")
+    http = _ScriptedHttp(
+        [
+            _FakeHttpResponse(200, bad1),
+            _FakeHttpResponse(200, bad2),
+        ]
+    )
     retried: list = []
     cfg = _ai_cfg([_ENDPOINT])
     provider = GeminiProvider(
-        http=http, cfg=cfg, api_key=_API_KEY, endpoint=_ENDPOINT,
+        http=http,
+        cfg=cfg,
+        api_key=_API_KEY,
+        endpoint=_ENDPOINT,
         audit_retry=lambda f, r: retried.append((f, r)),
     )
     assert await provider.narrate(_redacted_finding()) is None
@@ -639,7 +654,7 @@ async def test_retry_then_second_failure_returns_none() -> None:
     assert len(retried) == 1
 
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_retry_audit_callback_is_metadata_only(caplog) -> None:
     """Callback payload is exactly (finding_id, closed-set reason).
     Capture all logs across the retry path and assert no prompt /
@@ -648,14 +663,19 @@ async def test_retry_audit_callback_is_metadata_only(caplog) -> None:
 
     bad = _gemini_success_body('{"summary": "broken')
     good = _gemini_success_body(_VALID_NARRATIVE_JSON)
-    http = _ScriptedHttp([
-        _FakeHttpResponse(200, bad),
-        _FakeHttpResponse(200, good),
-    ])
+    http = _ScriptedHttp(
+        [
+            _FakeHttpResponse(200, bad),
+            _FakeHttpResponse(200, good),
+        ]
+    )
     captured: list[tuple[str, str]] = []
     cfg = _ai_cfg([_ENDPOINT])
     provider = GeminiProvider(
-        http=http, cfg=cfg, api_key=_API_KEY, endpoint=_ENDPOINT,
+        http=http,
+        cfg=cfg,
+        api_key=_API_KEY,
+        endpoint=_ENDPOINT,
         audit_retry=lambda f, r: captured.append((f, r)),
     )
     with caplog.at_level(logging.DEBUG):
@@ -676,7 +696,7 @@ async def test_retry_audit_callback_is_metadata_only(caplog) -> None:
     assert "broken" not in blob
 
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_retry_callback_failure_does_not_break_sweep() -> None:
     """Audit-callback exception must be swallowed — the sweep keeps
     going and the retry still fires."""
@@ -686,13 +706,18 @@ async def test_retry_callback_failure_does_not_break_sweep() -> None:
 
     bad = _gemini_success_body('{"summary": "broken')
     good = _gemini_success_body(_VALID_NARRATIVE_JSON)
-    http = _ScriptedHttp([
-        _FakeHttpResponse(200, bad),
-        _FakeHttpResponse(200, good),
-    ])
+    http = _ScriptedHttp(
+        [
+            _FakeHttpResponse(200, bad),
+            _FakeHttpResponse(200, good),
+        ]
+    )
     cfg = _ai_cfg([_ENDPOINT])
     provider = GeminiProvider(
-        http=http, cfg=cfg, api_key=_API_KEY, endpoint=_ENDPOINT,
+        http=http,
+        cfg=cfg,
+        api_key=_API_KEY,
+        endpoint=_ENDPOINT,
         audit_retry=boom,
     )
     out = await provider.narrate(_redacted_finding())
@@ -705,7 +730,7 @@ async def test_retry_callback_failure_does_not_break_sweep() -> None:
 # ---------------------------------------------------------------------------
 
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_safe_http_client_double_close_is_silent() -> None:
     """Closing twice must not raise and must not produce a warning the
     second time — the sweep's `close_all` path now relies on this."""
@@ -717,7 +742,7 @@ async def test_safe_http_client_double_close_is_silent() -> None:
     assert client._closed is True  # type: ignore[attr-defined]
 
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_safe_http_client_close_swallows_runtime_error(monkeypatch) -> None:
     """If the underlying httpx client raises RuntimeError on close
     (the 'Event loop is closed' pattern when cleanup runs on a fresh

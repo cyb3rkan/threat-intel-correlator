@@ -4,6 +4,7 @@
 Usage: SafeClient calls `ensure_public_url(url)` before every HTTP request
 and after every redirect hop.
 """
+
 from __future__ import annotations
 
 import ipaddress
@@ -12,13 +13,15 @@ from urllib.parse import urlparse
 
 from tic.domain.errors import SecurityViolationError
 
-_BLOCKED_HOST_SUBSTRINGS = frozenset({
-    "metadata.google.internal",
-    "metadata.goog",
-    "metadata.azure.com",
-    "169.254.169.254",
-    "fd00:ec2::254",
-})
+_BLOCKED_HOST_SUBSTRINGS = frozenset(
+    {
+        "metadata.google.internal",
+        "metadata.goog",
+        "metadata.azure.com",
+        "169.254.169.254",
+        "fd00:ec2::254",
+    }
+)
 
 _ALLOWED_SCHEMES = frozenset({"https"})
 
@@ -88,7 +91,6 @@ def _is_disallowed_ip(ip: ipaddress.IPv4Address | ipaddress.IPv6Address) -> bool
     if isinstance(ip, ipaddress.IPv4Address):
         if ip in ipaddress.ip_network("169.254.0.0/16"):
             return True
-    else:
-        if ip.ipv4_mapped is not None and _is_disallowed_ip(ip.ipv4_mapped):
-            return True
+    elif ip.ipv4_mapped is not None and _is_disallowed_ip(ip.ipv4_mapped):
+        return True
     return False

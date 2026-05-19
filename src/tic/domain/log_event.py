@@ -8,6 +8,7 @@ Security design:
   attribute values.
 - Hostname/user fields are candidates for redaction before any AI path.
 """
+
 from __future__ import annotations
 
 from datetime import datetime

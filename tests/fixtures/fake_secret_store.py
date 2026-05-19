@@ -6,10 +6,10 @@ keyring. This fake lets tests exercise the wiring without touching the
 host keyring and without any real secret material — the byte strings are
 synthetic test placeholders.
 """
+
 from __future__ import annotations
 
 from tic.ports.secret_store import SecretStore
-
 
 # A 32-byte synthetic key. NOT a real secret — only used to satisfy
 # `Redactor`'s `len(hmac_key) >= 32` precondition in tests.
@@ -28,9 +28,7 @@ class FakeSecretStore(SecretStore):
         try:
             return self._m[(service, user)]
         except KeyError as e:
-            raise RuntimeError(
-                f"fake_secret_store: no key for {service}/{user}"
-            ) from e
+            raise RuntimeError(f"fake_secret_store: no key for {service}/{user}") from e
 
     def put(self, service: str, user: str, value: bytes) -> None:
         self._m[(service, user)] = value
@@ -45,9 +43,11 @@ def default_ai_and_hmac_store(
 ) -> FakeSecretStore:
     """A FakeSecretStore pre-populated with the keys an AI-enabled sweep
     needs: the AI bearer (synthetic placeholder) and the redaction HMAC."""
-    return FakeSecretStore({
-        # The AI bearer value is never inspected by the mock provider;
-        # we still pass it through wiring so the keyring lookup succeeds.
-        (ai_service, ai_user): b"phase-d-placeholder-ai-key-NOT-REAL",
-        (hmac_service, hmac_user): PLACEHOLDER_HMAC_32B,
-    })
+    return FakeSecretStore(
+        {
+            # The AI bearer value is never inspected by the mock provider;
+            # we still pass it through wiring so the keyring lookup succeeds.
+            (ai_service, ai_user): b"phase-d-placeholder-ai-key-NOT-REAL",
+            (hmac_service, hmac_user): PLACEHOLDER_HMAC_32B,
+        }
+    )

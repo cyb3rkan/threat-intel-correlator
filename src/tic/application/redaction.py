@@ -5,6 +5,7 @@ Philosophy: allowlist over blocklist. We emit only the fields AI needs and
 pseudonymize identifiers via HMAC so narratives can reference consistent tokens
 without leaking real values.
 """
+
 from __future__ import annotations
 
 from typing import Literal

@@ -1,5 +1,6 @@
 # src/tic/ports/secret_store.py
 """SecretStore port. Backed by OS keyring, Vault, or in-memory (tests)."""
+
 from __future__ import annotations
 
 from typing import Protocol

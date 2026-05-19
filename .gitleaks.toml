@@ -47,3 +47,20 @@ regexes = [
     '''d41d8cd98f00b204e9800998ecf8427e''',
     '''da39a3ee5e6b4b0d3255bfef95601890afd80709''',
 ]
+
+[allowlist]
+description = "Allow redaction test placeholders, not real secrets"
+regexes = [
+  '''Bearer placeholder''',
+  '''Bearer placeholder-not-a-real-token''',
+  '''Bearer abc123''',
+  '''Authorization: Bearer abcdefghijklmnopqrstuvwxyz''',
+  '''REDACTED'''
+]
+paths = [
+  '''^docs/OPERATIONS\.md$''',
+  '''^tests/security/test_ai_logging_redaction\.py$''',
+  '''^tests/unit/test_logging\.py$''',
+  '''^tests/unit/test_narrator_audit\.py$''',
+  '''^tests/unit/test_redaction_patterns\.py$'''
+]

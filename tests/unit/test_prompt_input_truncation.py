@@ -14,10 +14,11 @@ Truncation strategy:
 The Narrator emits an `ai_input_truncated` audit event containing only
 counts — never the dropped content.
 """
+
 from __future__ import annotations
 
 import json
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 import pytest
 
@@ -32,7 +33,6 @@ from tic.domain.finding import (
 )
 from tic.domain.ioc import IOC, IOCType
 
-
 _HMAC_KEY = b"0" * 32
 
 
@@ -41,7 +41,7 @@ def _bulk_finding(*, n_matches: int = 100, n_enrichments: int = 4) -> Finding:
         Match(
             log_source=f"host-{i}.corp.local",
             field="src_ip",
-            timestamp=datetime(2025, 1, 1, tzinfo=timezone.utc),
+            timestamp=datetime(2025, 1, 1, tzinfo=UTC),
             raw_line_hash="a" * 64,
         )
         for i in range(n_matches)
@@ -51,7 +51,7 @@ def _bulk_finding(*, n_matches: int = 100, n_enrichments: int = 4) -> Finding:
             provider=f"prov_{i}"[:64],
             reputation_score=50 + i,
             tags=frozenset({f"tag{i}"}),
-            fetched_at=datetime(2025, 1, 1, tzinfo=timezone.utc),
+            fetched_at=datetime(2025, 1, 1, tzinfo=UTC),
             ttl_seconds=3600,
         )
         for i in range(n_enrichments)
@@ -65,7 +65,7 @@ def _bulk_finding(*, n_matches: int = 100, n_enrichments: int = 4) -> Finding:
         severity=Severity.HIGH,
         profile_hash="a" * 64,
         correlation_id="cid",
-        created_at=datetime(2025, 1, 1, tzinfo=timezone.utc),
+        created_at=datetime(2025, 1, 1, tzinfo=UTC),
     )
 
 
@@ -157,17 +157,18 @@ class _RecordingAudit:
 class _OkAI:
     async def narrate(self, _redacted):
         from tic.domain.finding import AINarrative
+
         return AINarrative(
             summary="ok",
             false_positive_likelihood="low",
             suggested_actions=["Review in SIEM"],
             confidence="medium",
             model="placeholder",
-            generated_at=datetime(2025, 1, 1, tzinfo=timezone.utc),
+            generated_at=datetime(2025, 1, 1, tzinfo=UTC),
         )
 
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_narrator_emits_ai_input_truncated_when_truncation_happens() -> None:
     audit = _RecordingAudit()
     narrator = Narrator(_OkAI(), Redactor(_HMAC_KEY), audit=audit, max_input_chars=400)
@@ -186,7 +187,7 @@ async def test_narrator_emits_ai_input_truncated_when_truncation_happens() -> No
     assert "host-0.corp.local" not in blob
 
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_narrator_returns_original_when_payload_too_large_to_fit() -> None:
     """A degenerate input whose required core exceeds the budget yields a
     fail-safe pass-through: original Finding, no narrative."""
@@ -200,7 +201,7 @@ async def test_narrator_returns_original_when_payload_too_large_to_fit() -> None
     assert rejected[0][1]["reason"] == "input_too_large"
 
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_narrator_does_not_emit_truncation_event_when_payload_fits() -> None:
     audit = _RecordingAudit()
     narrator = Narrator(_OkAI(), Redactor(_HMAC_KEY), audit=audit, max_input_chars=10_000)

@@ -6,6 +6,7 @@ the known value keys. Lines that fail to parse are skipped with a DEBUG log
 entry; the feed is not aborted unless the underlying file is unusable or a
 hard limit is exceeded.
 """
+
 from __future__ import annotations
 
 import json

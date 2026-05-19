@@ -1,6 +1,8 @@
 # src/tic/cli/_wiring.py
 """Provider/narrator factories + lifecycle close_all()."""
+
 from __future__ import annotations
+
 from typing import TYPE_CHECKING
 
 from tic.adapters.cache.sqlite_cache import SqliteCache
@@ -90,7 +92,11 @@ def _build_one(
                     },
                 )
             except Exception as e:  # noqa: BLE001 — audit failure must not block sweep
-                _log.warning("audit_append_failed", event="provider_tls_verify_disabled", error=type(e).__name__)
+                _log.warning(
+                    "audit_append_failed",
+                    event="provider_tls_verify_disabled",
+                    error=type(e).__name__,
+                )
     http = SafeHttpClient(
         http_cfg,
         extra_host_allowlist=extra,
@@ -105,7 +111,9 @@ def _build_one(
         if not cfg.endpoint:
             _log.warning("misp_endpoint_missing")
             return None
-        return MispProvider(http, cache, api_key, endpoint=cfg.endpoint, ttl_seconds=cfg.cache_ttl_seconds)
+        return MispProvider(
+            http, cache, api_key, endpoint=cfg.endpoint, ttl_seconds=cfg.cache_ttl_seconds
+        )
     raise ConfigError(f"unknown provider: {name}", user_message=f"Unknown provider: {name}")
 
 
@@ -158,8 +166,10 @@ def build_narrator(
     if not settings.ai.enabled or not settings.ai.endpoint_allowlist:
         return None
     try:
-        ai_key   = secret_store.get(settings.ai.keyring_service, settings.ai.keyring_user)
-        hmac_key = secret_store.get(settings.redaction_hmac_keyring_service, settings.redaction_hmac_keyring_user)
+        ai_key = secret_store.get(settings.ai.keyring_service, settings.ai.keyring_user)
+        hmac_key = secret_store.get(
+            settings.redaction_hmac_keyring_service, settings.redaction_hmac_keyring_user
+        )
     except Exception as e:  # noqa: BLE001
         _log.warning("narrator_keys_missing", error=type(e).__name__)
         return None
@@ -196,6 +206,7 @@ def build_narrator(
         ai = GeminiProvider(http, settings.ai, ai_key, endpoint, audit_retry=retry_cb)
     else:
         from tic.adapters.ai_providers.openai_compat import OpenAICompatProvider
+
         ai = OpenAICompatProvider(http, settings.ai, ai_key, endpoint)
     return Narrator(
         ai,
@@ -205,7 +216,7 @@ def build_narrator(
     )
 
 
-async def close_all(providers: list[EnrichmentProvider], narrator: "Narrator | None") -> None:
+async def close_all(providers: list[EnrichmentProvider], narrator: Narrator | None) -> None:
     """Close all HTTP clients. Call in finally after sweep."""
     for p in providers:
         h = getattr(p, "_http", None)

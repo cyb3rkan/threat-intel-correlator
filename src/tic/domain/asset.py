@@ -6,6 +6,7 @@ Security classification:
 - owner_email: Confidential (PII; redacted before AI / external output)
 - criticality: Internal
 """
+
 from __future__ import annotations
 
 from enum import Enum

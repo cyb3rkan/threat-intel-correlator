@@ -7,9 +7,10 @@ change has to be explicit. The substrings here are short, semantically
 distinct phrases — paraphrasing the prompt is allowed; removing the
 defensive posture is not.
 """
+
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 import pytest
 
@@ -17,7 +18,6 @@ from tic.application.ai.prompt_builder import build_messages
 from tic.application.redaction import Redactor
 from tic.domain.finding import Finding, Severity
 from tic.domain.ioc import IOC, IOCType
-
 
 _HMAC_KEY = b"0" * 32
 
@@ -32,7 +32,7 @@ def _finding() -> Finding:
         severity=Severity.MEDIUM,
         profile_hash="a" * 64,
         correlation_id="cid",
-        created_at=datetime(2025, 1, 1, tzinfo=timezone.utc),
+        created_at=datetime(2025, 1, 1, tzinfo=UTC),
     )
 
 
@@ -109,7 +109,7 @@ def test_user_envelope_still_escapes_inner_untrusted_delimiter() -> None:
         severity=Severity.MEDIUM,
         profile_hash="a" * 64,
         correlation_id="cid",
-        created_at=datetime(2025, 1, 1, tzinfo=timezone.utc),
+        created_at=datetime(2025, 1, 1, tzinfo=UTC),
     )
     user = build_messages(Redactor(_HMAC_KEY).redact(f))[1]["content"]
     # Exactly one closing delimiter — the outer envelope's. The payload's
@@ -251,7 +251,7 @@ def test_delimiter_escape_still_works_with_hints() -> None:
         severity=Severity.MEDIUM,
         profile_hash="a" * 64,
         correlation_id="cid",
-        created_at=datetime(2025, 1, 1, tzinfo=timezone.utc),
+        created_at=datetime(2025, 1, 1, tzinfo=UTC),
     )
     for lang in ("en", "tr"):
         for level in ("concise", "detailed"):

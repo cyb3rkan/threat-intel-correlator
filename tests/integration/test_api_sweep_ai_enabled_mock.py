@@ -20,6 +20,7 @@ Contracts frozen:
       - prompt envelope markers (`<untrusted>`)
       - the test-only placeholder key string
 """
+
 from __future__ import annotations
 
 import json
@@ -27,14 +28,12 @@ import tempfile
 from pathlib import Path
 
 from fastapi.testclient import TestClient
-
 from tests.fixtures.fake_secret_store import PLACEHOLDER_HMAC_32B
 from tests.fixtures.mock_ai_provider import (
     MockAIProvider,
     MockAIProviderInvalidJson,
     MockAIProviderTimeout,
 )
-
 
 _FEED = b"value,confidence,source,tags\n198.51.100.23,80,sample,doc;ipv4\n"
 _LOG = (
@@ -108,6 +107,7 @@ def test_api_sweep_ai_enabled_mock_attaches_narrative(monkeypatch):
     _inject_mock_narrator(monkeypatch, MockAIProvider())
 
     from tic.api.main import app
+
     c = TestClient(app)
 
     res = _post(c, with_ai="true")
@@ -146,6 +146,7 @@ def test_api_sweep_ai_enabled_correlation_id_header_present(monkeypatch):
     _inject_mock_narrator(monkeypatch, MockAIProvider())
 
     from tic.api.main import app
+
     c = TestClient(app)
 
     res = _post(c, with_ai="true")
@@ -167,6 +168,7 @@ def test_api_sweep_ai_disabled_remains_silent(monkeypatch):
     # No ai_supported patch — default returns False because YAML disables AI.
 
     from tic.api.main import app
+
     c = TestClient(app)
 
     res = _post(c, with_ai="true")
@@ -184,6 +186,7 @@ def test_api_sweep_ai_timeout_falls_back_safely(monkeypatch):
     _inject_mock_narrator(monkeypatch, MockAIProviderTimeout())
 
     from tic.api.main import app
+
     c = TestClient(app)
 
     res = _post(c, with_ai="true")
@@ -205,6 +208,7 @@ def test_api_sweep_ai_invalid_response_falls_back_safely(monkeypatch):
     _inject_mock_narrator(monkeypatch, MockAIProviderInvalidJson())
 
     from tic.api.main import app
+
     c = TestClient(app)
 
     res = _post(c, with_ai="true")
@@ -239,8 +243,7 @@ def test_api_sweep_ai_on_off_identical_severity_score_exit_code(monkeypatch):
     # which are generated per-run).
     def core(body):
         return sorted(
-            (f["ioc_value"], f["score"], f["severity"], f["match_count"])
-            for f in body["findings"]
+            (f["ioc_value"], f["score"], f["severity"], f["match_count"]) for f in body["findings"]
         )
 
     assert core(off) == core(on)

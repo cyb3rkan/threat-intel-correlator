@@ -1,5 +1,6 @@
 # src/tic/security/csv_injection.py
 """CSV formula injection mitigation (OWASP-recommended prefix approach)."""
+
 from __future__ import annotations
 
 _FORMULA_PREFIXES = ("=", "+", "-", "@", "\t", "\r")

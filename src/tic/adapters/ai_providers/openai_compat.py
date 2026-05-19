@@ -9,6 +9,7 @@ Phase B hardening:
   `timeout`, and the caller sees a Finding with `ai_narrative=None`.
 - SSRF guard and endpoint allowlist behaviour are unchanged.
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -67,7 +68,7 @@ class OpenAICompatProvider(AIProvider):
         try:
             async with asyncio.timeout(timeout_s):
                 resp = await self._http.post(self._endpoint, headers=headers, content=data)
-        except asyncio.TimeoutError:
+        except TimeoutError:
             _log.warning("ai_request_timeout", timeout_seconds=timeout_s)
             return None
         except Exception as e:  # noqa: BLE001

@@ -5,25 +5,26 @@ These tests reuse fixtures from tests/conftest.py:
   - tmp_settings: Settings with working_dir = tmp_path
   - csv_feed_factory / log_with_ip / make_finding
 """
+
 from __future__ import annotations
 
 import csv
 import io
 import json
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 
 import pytest
 
 from tic.domain.errors import SecurityViolationError
-from tic.domain.finding import Finding, OutputMode, Severity
+from tic.domain.finding import Finding, Severity
 from tic.domain.ioc import IOC, IOCType
 from tic.ui import adapter
-
 
 # ---------------------------------------------------------------------------
 # Upload staging
 # ---------------------------------------------------------------------------
+
 
 def test_make_upload_dir_inside_working_dir(tmp_settings) -> None:
     wd = tmp_settings.paths.working_dir
@@ -56,9 +57,7 @@ def test_stage_upload_uuid_name_and_safe_extension(tmp_settings) -> None:
 def test_stage_upload_strips_unsafe_extension(tmp_settings) -> None:
     wd = tmp_settings.paths.working_dir
     up = adapter.make_upload_dir(wd)
-    target = adapter.stage_upload(
-        b"x", upload_dir=up, working_dir=wd, original_filename="evil.exe"
-    )
+    target = adapter.stage_upload(b"x", upload_dir=up, working_dir=wd, original_filename="evil.exe")
     assert target.suffix == ""  # .exe is not on SAFE_EXTENSIONS
 
 
@@ -66,9 +65,7 @@ def test_stage_upload_rejects_dir_outside_working_dir(tmp_settings, tmp_path_fac
     wd = tmp_settings.paths.working_dir
     outside = tmp_path_factory.mktemp("outside")
     with pytest.raises(SecurityViolationError):
-        adapter.stage_upload(
-            b"x", upload_dir=outside, working_dir=wd, original_filename="a.csv"
-        )
+        adapter.stage_upload(b"x", upload_dir=outside, working_dir=wd, original_filename="a.csv")
 
 
 def test_cleanup_upload_dir_removes_tree(tmp_settings) -> None:
@@ -83,6 +80,7 @@ def test_cleanup_upload_dir_removes_tree(tmp_settings) -> None:
 # AI feasibility
 # ---------------------------------------------------------------------------
 
+
 def test_ai_supported_default_false(tmp_settings) -> None:
     assert adapter.ai_supported(tmp_settings) is False
 
@@ -91,16 +89,25 @@ def test_ai_supported_default_false(tmp_settings) -> None:
 # Public-row projection contains only safe fields
 # ---------------------------------------------------------------------------
 
-def _finding_with_value(value: str, default_profile, score: int = 50,
-                       severity: Severity = Severity.MEDIUM,
-                       ioc_type: IOCType = IOCType.DOMAIN) -> Finding:
+
+def _finding_with_value(
+    value: str,
+    default_profile,
+    score: int = 50,
+    severity: Severity = Severity.MEDIUM,
+    ioc_type: IOCType = IOCType.DOMAIN,
+) -> Finding:
     ioc = IOC(value=value, ioc_type=ioc_type, source="test", confidence=80)
     return Finding(
         finding_id="00000000-0000-4000-8000-000000000001",
-        ioc=ioc, matches=[], enrichments=[], score=score, severity=severity,
+        ioc=ioc,
+        matches=[],
+        enrichments=[],
+        score=score,
+        severity=severity,
         profile_hash=default_profile.profile_hash(),
         correlation_id="cid",
-        created_at=datetime(2025, 1, 1, tzinfo=timezone.utc),
+        created_at=datetime(2025, 1, 1, tzinfo=UTC),
     )
 
 
@@ -108,13 +115,23 @@ def test_public_rows_only_exposes_safe_keys(default_profile) -> None:
     f = _finding_with_value("evil.example.com", default_profile)
     rows = adapter.public_rows([f], "analyst")
     assert len(rows) == 1
-    expected_keys = {"severity", "score", "type", "value", "matches", "providers", "ai", "finding_id"}
+    expected_keys = {
+        "severity",
+        "score",
+        "type",
+        "value",
+        "matches",
+        "providers",
+        "ai",
+        "finding_id",
+    }
     assert set(rows[0].keys()) == expected_keys
 
 
 # ---------------------------------------------------------------------------
 # JSON export does not leak raw fields
 # ---------------------------------------------------------------------------
+
 
 def test_to_json_bytes_omits_raw_log_and_truncated_raw(default_profile) -> None:
     f = _finding_with_value("evil.example.com", default_profile)
@@ -132,6 +149,7 @@ def test_to_json_bytes_omits_raw_log_and_truncated_raw(default_profile) -> None:
 # ---------------------------------------------------------------------------
 # CSV export: formula injection mitigation + QUOTE_ALL
 # ---------------------------------------------------------------------------
+
 
 @pytest.mark.parametrize(
     "trigger,ioc_type",
@@ -176,6 +194,7 @@ def test_to_markdown_bytes_renders(default_profile) -> None:
 # ---------------------------------------------------------------------------
 # End-to-end via run_sweep (no providers, no AI)
 # ---------------------------------------------------------------------------
+
 
 def test_run_sweep_end_to_end(tmp_settings, csv_feed_factory, log_with_ip) -> None:
     feed = csv_feed_factory(["1.2.3.4"])
@@ -235,6 +254,7 @@ def test_output_mode_hash_without_key_raises_config_error(default_profile) -> No
     """R5 regression: rendering hash mode with no key must NOT silently
     fall back to a deterministic zero-key — it raises ConfigError."""
     from tic.domain.errors import ConfigError
+
     f = _finding_with_value("evil.example.com", default_profile)
     with pytest.raises(ConfigError):
         adapter.public_rows([f], "hash")  # no hmac_key

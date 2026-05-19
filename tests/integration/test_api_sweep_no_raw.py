@@ -8,6 +8,7 @@ Rules:
 - AI requested but unavailable must surface as ai_attempted/ai_active flags
   (not raise) and never echo the AI key.
 """
+
 from __future__ import annotations
 
 import json
@@ -45,6 +46,7 @@ def test_sweep_response_omits_truncated_raw(monkeypatch):
         monkeypatch.setenv(k, v)
     # Hash mode is not exercised here — no HMAC key needed.
     from tic.api.main import app
+
     c = TestClient(app)
     r = c.post(
         "/api/sweep",
@@ -79,6 +81,7 @@ def test_sweep_with_ai_unavailable_returns_safe_flags(monkeypatch):
     # ai.enabled stays false (default) → adapter never tries to load the key.
     # The API must still succeed and report ai_attempted=false / ai_active=false.
     from tic.api.main import app
+
     c = TestClient(app)
     r = c.post(
         "/api/sweep",
@@ -120,6 +123,7 @@ def test_sweep_hash_mode_without_redaction_key_returns_friendly_error(monkeypatc
         lambda settings, secret_store: None,
     )
     from tic.api.main import app
+
     c = TestClient(app)
     r = c.post(
         "/api/sweep",
@@ -158,6 +162,7 @@ def test_api_responses_carry_correlation_id_header(monkeypatch):
         lambda settings, secret_store: None,
     )
     from tic.api.main import app
+
     c = TestClient(app)
 
     # Success path
@@ -211,6 +216,7 @@ def test_with_ai_true_when_ai_disabled_no_http_client_opened(monkeypatch):
     )
 
     from tic.api.main import app
+
     c = TestClient(app)
     r = c.post(
         "/api/sweep",
@@ -241,6 +247,7 @@ def test_with_ai_true_when_ai_disabled_is_safe_and_silent(monkeypatch):
     for k, v in _make_env().items():
         monkeypatch.setenv(k, v)
     from tic.api.main import app
+
     c = TestClient(app)
     r = c.post(
         "/api/sweep",

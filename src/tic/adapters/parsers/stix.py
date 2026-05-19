@@ -12,6 +12,7 @@ Supported input shapes:
 - Bare indicator list (`[{"type": "indicator", ...}, ...]`)
 - Single indicator object (`{"type": "indicator", ...}`)
 """
+
 from __future__ import annotations
 
 import json

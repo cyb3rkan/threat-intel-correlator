@@ -29,19 +29,25 @@ def test_rejects_missing_host() -> None:
 
 
 def test_rejects_loopback() -> None:
-    with patch("tic.security.ssrf_guard.socket.getaddrinfo", return_value=_mock_resolve("127.0.0.1")):
+    with patch(
+        "tic.security.ssrf_guard.socket.getaddrinfo", return_value=_mock_resolve("127.0.0.1")
+    ):
         with pytest.raises(SecurityViolationError, match="disallowed IP"):
             ensure_public_url("https://localhost/api")
 
 
 def test_rejects_private_ip() -> None:
-    with patch("tic.security.ssrf_guard.socket.getaddrinfo", return_value=_mock_resolve("192.168.1.1")):
+    with patch(
+        "tic.security.ssrf_guard.socket.getaddrinfo", return_value=_mock_resolve("192.168.1.1")
+    ):
         with pytest.raises(SecurityViolationError, match="disallowed IP"):
             ensure_public_url("https://internal.corp/api")
 
 
 def test_rejects_link_local() -> None:
-    with patch("tic.security.ssrf_guard.socket.getaddrinfo", return_value=_mock_resolve("169.254.1.1")):
+    with patch(
+        "tic.security.ssrf_guard.socket.getaddrinfo", return_value=_mock_resolve("169.254.1.1")
+    ):
         with pytest.raises(SecurityViolationError, match="disallowed IP"):
             ensure_public_url("https://linklocal.example/")
 
@@ -57,14 +63,19 @@ def test_rejects_google_metadata() -> None:
 
 
 def test_allows_explicit_allowlist() -> None:
-    with patch("tic.security.ssrf_guard.socket.getaddrinfo", return_value=_mock_resolve("10.0.0.5")):
+    with patch(
+        "tic.security.ssrf_guard.socket.getaddrinfo", return_value=_mock_resolve("10.0.0.5")
+    ):
         # Should NOT raise because host is in allowlist
         ensure_public_url("https://misp.internal/api", extra_allowlist=frozenset({"misp.internal"}))
 
 
 def test_rejects_dns_failure() -> None:
     import socket
-    with patch("tic.security.ssrf_guard.socket.getaddrinfo", side_effect=socket.gaierror("nxdomain")):
+
+    with patch(
+        "tic.security.ssrf_guard.socket.getaddrinfo", side_effect=socket.gaierror("nxdomain")
+    ):
         with pytest.raises(SecurityViolationError, match="dns resolve failed"):
             ensure_public_url("https://nonexistent.invalid/")
 

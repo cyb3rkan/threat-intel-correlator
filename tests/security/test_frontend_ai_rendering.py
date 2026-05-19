@@ -20,12 +20,12 @@ frontend source for the AI rendering site and verify:
 
 If the frontend tree is absent (backend-only checkout), the test skips.
 """
+
 from __future__ import annotations
 
 import pathlib
 
 import pytest
-
 
 _ROOT = pathlib.Path(__file__).resolve().parents[2] / "frontend"
 
@@ -58,9 +58,7 @@ def test_finding_detail_labels_ai_output_as_advisory() -> None:
     # Advisory marker for analysts — present so AI output is not
     # mistaken for a deterministic detection result.
     advisory_markers = ("AI üretimi", "inceleme gerekli", "AI-generated advisory")
-    assert any(m in src for m in advisory_markers), (
-        "AI rendering site must carry an advisory label"
-    )
+    assert any(m in src for m in advisory_markers), "AI rendering site must carry an advisory label"
 
 
 def test_frontend_csv_export_includes_ai_present_only() -> None:
@@ -68,7 +66,7 @@ def test_frontend_csv_export_includes_ai_present_only() -> None:
     if src is None:
         pytest.skip("frontend/lib/api.ts not present")
     # Phase C added the column.
-    assert "\"ai_present\"" in src
+    assert '"ai_present"' in src
     # And NEVER the long-form fields.
     for forbidden in (
         "ai_summary",

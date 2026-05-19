@@ -6,10 +6,11 @@ OutputMode controls IOC value exposure:
   SUMMARY: first 8 chars + "…" — safe for wider distribution.
   HASH:    HMAC-SHA256 pseudonym — compliance/public reports.
 """
+
 from __future__ import annotations
 
-import hmac
 import hashlib
+import hmac
 from datetime import datetime
 from enum import Enum
 from typing import Annotated, Literal
@@ -18,20 +19,22 @@ from pydantic import BaseModel, ConfigDict, Field, StringConstraints
 
 from tic.domain.ioc import IOC
 
-
 # ---------------------------------------------------------------------------
 # Output mode
 # ---------------------------------------------------------------------------
 
+
 class OutputMode(str):
     """IOC value exposure level in PublicFinding output."""
-    ANALYST: "OutputMode"
-    SUMMARY: "OutputMode"
-    HASH:    "OutputMode"
+
+    ANALYST: OutputMode
+    SUMMARY: OutputMode
+    HASH: OutputMode
+
 
 OutputMode.ANALYST = OutputMode("analyst")
 OutputMode.SUMMARY = OutputMode("summary")
-OutputMode.HASH    = OutputMode("hash")
+OutputMode.HASH = OutputMode("hash")
 
 
 def _mask_ioc_value(value: str, mode: OutputMode, hmac_key: bytes | None = None) -> str:
@@ -44,6 +47,7 @@ def _mask_ioc_value(value: str, mode: OutputMode, hmac_key: bytes | None = None)
         # `redaction_hmac_keyring_service/_user` and pass it in.
         if hmac_key is None or len(hmac_key) == 0:
             from tic.domain.errors import ConfigError
+
             raise ConfigError(
                 "hash output_mode requires a redaction HMAC key; none provided",
                 user_message=(
@@ -60,11 +64,12 @@ def _mask_ioc_value(value: str, mode: OutputMode, hmac_key: bytes | None = None)
 # Core domain types
 # ---------------------------------------------------------------------------
 
+
 class Severity(str, Enum):
-    INFO     = "info"
-    LOW      = "low"
-    MEDIUM   = "medium"
-    HIGH     = "high"
+    INFO = "info"
+    LOW = "low"
+    MEDIUM = "medium"
+    HIGH = "high"
     CRITICAL = "critical"
 
     @property
@@ -74,55 +79,55 @@ class Severity(str, Enum):
 
 class Match(BaseModel):
     model_config = ConfigDict(frozen=True, extra="forbid")
-    log_source:    Annotated[str, StringConstraints(max_length=256)]
-    field:         Annotated[str, StringConstraints(max_length=64)]
-    timestamp:     datetime
+    log_source: Annotated[str, StringConstraints(max_length=256)]
+    field: Annotated[str, StringConstraints(max_length=64)]
+    timestamp: datetime
     raw_line_hash: Annotated[str, StringConstraints(min_length=64, max_length=64)]
 
 
 class EnrichmentResult(BaseModel):
     model_config = ConfigDict(frozen=True, extra="forbid")
-    provider:         Annotated[str, StringConstraints(max_length=64)]
+    provider: Annotated[str, StringConstraints(max_length=64)]
     reputation_score: int | None = Field(default=None, ge=0, le=100)
-    tags:             frozenset[str] = Field(default_factory=frozenset)
-    fetched_at:       datetime
-    ttl_seconds:      int = Field(ge=1, le=30 * 24 * 3600)
+    tags: frozenset[str] = Field(default_factory=frozenset)
+    fetched_at: datetime
+    ttl_seconds: int = Field(ge=1, le=30 * 24 * 3600)
     # truncated_raw: debug-only; never serialised to public output or cache by default.
     # Enable via TIC_DEBUG_CACHE_RAW=true for local troubleshooting only.
-    truncated_raw:    Annotated[str, StringConstraints(max_length=4096)] = ""
+    truncated_raw: Annotated[str, StringConstraints(max_length=4096)] = ""
 
 
 class AINarrative(BaseModel):
     model_config = ConfigDict(frozen=True, extra="forbid")
-    summary:                   Annotated[str, StringConstraints(max_length=1000)]
+    summary: Annotated[str, StringConstraints(max_length=1000)]
     false_positive_likelihood: Literal["low", "medium", "high"]
-    suggested_actions:         list[Annotated[str, StringConstraints(max_length=200)]] = Field(
+    suggested_actions: list[Annotated[str, StringConstraints(max_length=200)]] = Field(
         default_factory=list, max_length=5
     )
-    confidence:    Literal["low", "medium", "high"]
-    model:         Annotated[str, StringConstraints(max_length=128)]
-    generated_at:  datetime
-    ai_origin:     Literal[True] = True
+    confidence: Literal["low", "medium", "high"]
+    model: Annotated[str, StringConstraints(max_length=128)]
+    generated_at: datetime
+    ai_origin: Literal[True] = True
 
 
 class Finding(BaseModel):
     model_config = ConfigDict(frozen=True, extra="forbid")
-    finding_id:    Annotated[str, StringConstraints(min_length=36, max_length=36)]
-    ioc:           IOC
-    matches:       list[Match]           = Field(default_factory=list, max_length=1000)
-    enrichments:   list[EnrichmentResult] = Field(default_factory=list, max_length=16)
-    score:         int   = Field(ge=0, le=100)
-    severity:      Severity
-    profile_hash:  Annotated[str, StringConstraints(min_length=64, max_length=64)]
+    finding_id: Annotated[str, StringConstraints(min_length=36, max_length=36)]
+    ioc: IOC
+    matches: list[Match] = Field(default_factory=list, max_length=1000)
+    enrichments: list[EnrichmentResult] = Field(default_factory=list, max_length=16)
+    score: int = Field(ge=0, le=100)
+    severity: Severity
+    profile_hash: Annotated[str, StringConstraints(min_length=64, max_length=64)]
     correlation_id: Annotated[str, StringConstraints(max_length=64)]
-    created_at:    datetime
-    ai_narrative:  AINarrative | None = None
+    created_at: datetime
+    ai_narrative: AINarrative | None = None
 
     def to_public(
         self,
         mode: OutputMode = OutputMode.ANALYST,
         hmac_key: bytes | None = None,
-    ) -> "PublicFinding":
+    ) -> PublicFinding:
         """Return the privacy-safe DTO. `hmac_key` is required for HASH mode."""
         return PublicFinding(
             finding_id=self.finding_id,
@@ -154,11 +159,12 @@ class Finding(BaseModel):
 # Public-safe DTOs
 # ---------------------------------------------------------------------------
 
+
 class PublicEnrichment(BaseModel):
     model_config = ConfigDict(frozen=True, extra="forbid")
-    provider:         str
+    provider: str
     reputation_score: int | None
-    tags:             list[str]
+    tags: list[str]
 
 
 class PublicFinding(BaseModel):
@@ -169,19 +175,20 @@ class PublicFinding(BaseModel):
     - matches[*].raw_line_hash → omitted
     - enrichments[*].truncated_raw → omitted
     """
+
     model_config = ConfigDict(frozen=True, extra="forbid")
-    finding_id:    str
-    ioc_type:      str
-    ioc_value:     str
-    ioc_source:    str
+    finding_id: str
+    ioc_type: str
+    ioc_value: str
+    ioc_source: str
     ioc_confidence: int
-    ioc_tags:      list[str]
-    match_count:   int
-    enrichments:   list[PublicEnrichment]
-    score:         int
-    severity:      str
-    profile_hash:  str
+    ioc_tags: list[str]
+    match_count: int
+    enrichments: list[PublicEnrichment]
+    score: int
+    severity: str
+    profile_hash: str
     correlation_id: str
-    created_at:    datetime
-    ai_narrative:  AINarrative | None = None
-    output_mode:   str = "analyst"
+    created_at: datetime
+    ai_narrative: AINarrative | None = None
+    output_mode: str = "analyst"

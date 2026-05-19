@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 import io
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 from tic.adapters.renderers.markdown_renderer import (
     MarkdownRenderer,
@@ -23,7 +23,7 @@ def _finding(value: str = "evil.example.com", *, narrative: AINarrative | None =
         severity=Severity.HIGH,
         profile_hash="a" * 64,
         correlation_id="cid",
-        created_at=datetime(2025, 1, 1, tzinfo=timezone.utc),
+        created_at=datetime(2025, 1, 1, tzinfo=UTC),
         ai_narrative=narrative,
     )
 
@@ -96,7 +96,7 @@ def test_ai_narrative_labeled_as_ai_generated() -> None:
         suggested_actions=["Investigate host", "Block at firewall"],
         confidence="medium",
         model="on-prem-llm-v1",
-        generated_at=datetime(2025, 1, 1, tzinfo=timezone.utc),
+        generated_at=datetime(2025, 1, 1, tzinfo=UTC),
     )
     out = io.StringIO()
     render_markdown([_finding(narrative=narrative)], out)
@@ -116,7 +116,7 @@ def test_ai_narrative_renders_as_named_advisory_section() -> None:
         suggested_actions=["review in SIEM"],
         confidence="low",
         model="m1",
-        generated_at=datetime(2025, 1, 1, tzinfo=timezone.utc),
+        generated_at=datetime(2025, 1, 1, tzinfo=UTC),
     )
     out = io.StringIO()
     render_markdown([_finding(narrative=narrative)], out)

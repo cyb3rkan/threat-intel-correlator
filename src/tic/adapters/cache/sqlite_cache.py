@@ -1,5 +1,6 @@
 # src/tic/adapters/cache/sqlite_cache.py
 """SQLite-backed TTL cache. Parameterized queries only. File perms 0600."""
+
 from __future__ import annotations
 
 import os
@@ -75,9 +76,7 @@ class SqliteCache(Cache):
     def purge_expired(self) -> int:
         now = int(time.time())
         with self._lock:
-            cur = self._conn.execute(
-                "DELETE FROM entries WHERE expires_at <= ?", (now,)
-            )
+            cur = self._conn.execute("DELETE FROM entries WHERE expires_at <= ?", (now,))
             self._conn.commit()
             return cur.rowcount or 0
 

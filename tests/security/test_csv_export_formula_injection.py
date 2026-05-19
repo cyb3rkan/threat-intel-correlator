@@ -13,11 +13,12 @@ LibreOffice / Google Sheets executes the leading formula. The leading
 single quote (`'`) added by `escape_csv_cell` neutralises this and
 remains a non-destructive literal for plain-text consumers.
 """
+
 from __future__ import annotations
 
 import csv
 import io
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 import pytest
 
@@ -25,7 +26,6 @@ from tic.domain.finding import Finding, Severity
 from tic.domain.ioc import IOC, IOCType
 from tic.security.csv_injection import _FORMULA_PREFIXES
 from tic.ui.adapter import to_csv_bytes
-
 
 # Cells starting with any of these chars trigger formula execution in
 # popular spreadsheet apps. Pulled from the helper module so a future
@@ -69,7 +69,7 @@ def _finding_with(
         severity=Severity.MEDIUM,
         profile_hash="a" * 64,
         correlation_id="cid",
-        created_at=datetime(2025, 1, 1, tzinfo=timezone.utc),
+        created_at=datetime(2025, 1, 1, tzinfo=UTC),
     )
 
 
@@ -107,18 +107,16 @@ def test_ioc_value_with_formula_prefix_is_escaped(prefix: str) -> None:
     """Every non-whitespace formula prefix on an IOC value must be
     escaped in the exported CSV."""
     hostile = f"{prefix}cmd|' /C calc'!A0"
-    text = to_csv_bytes(
-        [_finding_with(ioc_value=hostile)], "analyst"
-    ).decode("utf-8")
+    text = to_csv_bytes([_finding_with(ioc_value=hostile)], "analyst").decode("utf-8")
     rows = _rows(text.encode("utf-8"))
     _assert_no_cell_starts_with_formula(rows)
 
     header = rows[0]
     body = rows[1]
     ioc_idx = header.index("ioc_value")
-    assert body[ioc_idx].startswith("'"), (
-        f"ioc_value cell {body[ioc_idx]!r} not prefixed with single quote"
-    )
+    assert body[ioc_idx].startswith(
+        "'"
+    ), f"ioc_value cell {body[ioc_idx]!r} not prefixed with single quote"
     assert body[ioc_idx] == "'" + hostile
 
 
@@ -131,9 +129,7 @@ def test_whitespace_formula_prefix_is_stripped_upstream(prefix: str) -> None:
     sanitisation, not the prefix-quote helper. This test pins both:
     the cell ends up safe AND the leading whitespace was removed."""
     hostile = f"{prefix}evil.example.com"
-    text = to_csv_bytes(
-        [_finding_with(ioc_value=hostile)], "analyst"
-    ).decode("utf-8")
+    text = to_csv_bytes([_finding_with(ioc_value=hostile)], "analyst").decode("utf-8")
     rows = _rows(text.encode("utf-8"))
     _assert_no_cell_starts_with_formula(rows)
     body = rows[1]
@@ -148,10 +144,8 @@ def test_whitespace_formula_prefix_is_stripped_upstream(prefix: str) -> None:
 
 @pytest.mark.parametrize("prefix", _NON_WS_PREFIXES)
 def test_ioc_source_with_formula_prefix_is_escaped(prefix: str) -> None:
-    hostile = f"{prefix}HYPERLINK(\"x\",\"y\")"
-    text = to_csv_bytes(
-        [_finding_with(ioc_source=hostile)], "analyst"
-    ).decode("utf-8")
+    hostile = f'{prefix}HYPERLINK("x","y")'
+    text = to_csv_bytes([_finding_with(ioc_source=hostile)], "analyst").decode("utf-8")
     rows = _rows(text.encode("utf-8"))
     _assert_no_cell_starts_with_formula(rows)
     header = rows[0]
@@ -173,7 +167,7 @@ def test_ioc_tags_joined_with_formula_prefix_is_escaped(prefix: str) -> None:
     # Build a tag that sorts first so it lands at the start of the
     # joined string. Tag set is sorted in to_public(), so we pick a tag
     # that sorts before any letter.
-    hostile_tag = f"{prefix}WEBSERVICE(\"x\")"
+    hostile_tag = f'{prefix}WEBSERVICE("x")'
     text = to_csv_bytes(
         [_finding_with(tags=frozenset({hostile_tag, "z-other"}))],
         "analyst",
@@ -185,9 +179,9 @@ def test_ioc_tags_joined_with_formula_prefix_is_escaped(prefix: str) -> None:
     tags_idx = header.index("ioc_tags")
     # Joined string starts with the hostile tag (which sorts first
     # because every formula prefix sorts before letters in ASCII).
-    assert body[tags_idx].startswith("'" + prefix), (
-        f"tags cell {body[tags_idx]!r} missing escape for prefix {prefix!r}"
-    )
+    assert body[tags_idx].startswith(
+        "'" + prefix
+    ), f"tags cell {body[tags_idx]!r} missing escape for prefix {prefix!r}"
 
 
 # ---------------------------------------------------------------------------

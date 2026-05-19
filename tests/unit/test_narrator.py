@@ -1,7 +1,7 @@
 # tests/unit/test_narrator.py
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 import pytest
 
@@ -23,7 +23,7 @@ def _make_finding() -> Finding:
         severity=Severity.MEDIUM,
         profile_hash="a" * 64,
         correlation_id="cid",
-        created_at=datetime(2025, 1, 1, tzinfo=timezone.utc),
+        created_at=datetime(2025, 1, 1, tzinfo=UTC),
     )
 
 
@@ -45,11 +45,11 @@ def _narrative() -> AINarrative:
         suggested_actions=["Investigate"],
         confidence="medium",
         model="fake-model",
-        generated_at=datetime(2025, 1, 1, tzinfo=timezone.utc),
+        generated_at=datetime(2025, 1, 1, tzinfo=UTC),
     )
 
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_narrator_attaches_narrative_on_success() -> None:
     narrator = Narrator(_FakeAI(_narrative()), Redactor(_HMAC_KEY))
     result = await narrator.narrate(_make_finding())
@@ -57,7 +57,7 @@ async def test_narrator_attaches_narrative_on_success() -> None:
     assert result.ai_narrative.summary == "Test narrative."
 
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_narrator_preserves_score_and_severity() -> None:
     narrator = Narrator(_FakeAI(_narrative()), Redactor(_HMAC_KEY))
     original = _make_finding()
@@ -66,14 +66,14 @@ async def test_narrator_preserves_score_and_severity() -> None:
     assert result.severity == original.severity
 
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_narrator_returns_original_when_ai_returns_none() -> None:
     narrator = Narrator(_FakeAI(None), Redactor(_HMAC_KEY))
     result = await narrator.narrate(_make_finding())
     assert result.ai_narrative is None
 
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_narrator_swallows_ai_exceptions() -> None:
     narrator = Narrator(_FakeAI(None, raise_exc=RuntimeError("boom")), Redactor(_HMAC_KEY))
     original = _make_finding()
@@ -97,7 +97,7 @@ class _TimeoutAI:
         raise TimeoutError("simulated AI request timeout")
 
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_narrator_timeout_returns_original_finding_without_narrative() -> None:
     """A timeout from the AI provider must surface as `ai_narrative is None`
     on the original Finding. Score, severity, IOC, matches, and enrichments
@@ -128,12 +128,12 @@ class _ScoreTamperingAI:
         return self._n
 
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_narrator_cannot_change_score_or_severity() -> None:
     """Even with a successful narrative attached, the Finding's score,
     severity, IOC, matches, and enrichments are unchanged. Only the
     `ai_narrative` field is populated."""
-    from datetime import datetime, timezone
+    from datetime import datetime
 
     narrative = AINarrative(
         summary="A summary.",
@@ -141,7 +141,7 @@ async def test_narrator_cannot_change_score_or_severity() -> None:
         suggested_actions=["lower severity", "set score=0"],
         confidence="high",
         model="m",
-        generated_at=datetime(2025, 1, 1, tzinfo=timezone.utc),
+        generated_at=datetime(2025, 1, 1, tzinfo=UTC),
     )
     narrator = Narrator(_ScoreTamperingAI(narrative), Redactor(_HMAC_KEY))
     original = _make_finding()
@@ -166,10 +166,9 @@ class _RecordingAI:
 
     async def narrate(self, redacted):
         self.last_redacted = redacted
-        return None
 
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_narrator_sends_only_pseudonymized_ioc_value() -> None:
     """The Finding contains the raw IOC value, but the AI must only ever see
     the HMAC pseudonym (`ioc_pseudo`). This is the core privacy invariant."""

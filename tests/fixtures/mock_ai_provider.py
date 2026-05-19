@@ -22,10 +22,11 @@ Available mocks:
 These mocks are deliberately confined to the test tree and are NEVER
 imported by production code paths.
 """
+
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 from tic.application.redaction import RedactedFinding
 from tic.domain.finding import AINarrative
@@ -45,7 +46,7 @@ def _canned_narrative(
         suggested_actions=actions if actions is not None else ["Review in SIEM"],
         confidence=confidence,  # type: ignore[arg-type]
         model=model,
-        generated_at=datetime(2026, 5, 14, tzinfo=timezone.utc),
+        generated_at=datetime(2026, 5, 14, tzinfo=UTC),
     )
 
 

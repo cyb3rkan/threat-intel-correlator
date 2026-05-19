@@ -4,6 +4,7 @@
 Determinism guarantee: for given (finding inputs, scoring_profile), the output
 (score, severity) is identical across all runs, processes, and machines.
 """
+
 from __future__ import annotations
 
 import hashlib
@@ -96,11 +97,7 @@ def compute_score(inputs: ScoringInputs, profile: ScoringProfile) -> int:
 
     # Weights may not sum exactly to 1; normalize against actual sum for stability.
     weight_sum = (
-        w.provider_reliability
-        + w.ioc_confidence
-        + w.match_count
-        + w.recency
-        + w.reputation_vote
+        w.provider_reliability + w.ioc_confidence + w.match_count + w.recency + w.reputation_vote
     )
     normalized = (weighted / weight_sum) if weight_sum > 0 else 0.0
 

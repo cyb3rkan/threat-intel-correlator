@@ -1,11 +1,12 @@
 # src/tic/adapters/enrichment/virustotal.py
 """VirusTotal v3 enrichment provider."""
+
 from __future__ import annotations
 
 import base64
 import json
 import os
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 from pydantic import BaseModel, ConfigDict, Field, ValidationError
 
@@ -78,13 +79,21 @@ def _endpoint_for(ioc: IOC) -> str | None:
 
 class VirusTotalProvider(EnrichmentProvider):
     name = "virustotal"
-    supported_types = frozenset({
-        IOCType.IP.value, IOCType.DOMAIN.value, IOCType.URL.value,
-        IOCType.HASH_MD5.value, IOCType.HASH_SHA1.value,
-        IOCType.HASH_SHA256.value, IOCType.HASH_SHA512.value,
-    })
+    supported_types = frozenset(
+        {
+            IOCType.IP.value,
+            IOCType.DOMAIN.value,
+            IOCType.URL.value,
+            IOCType.HASH_MD5.value,
+            IOCType.HASH_SHA1.value,
+            IOCType.HASH_SHA256.value,
+            IOCType.HASH_SHA512.value,
+        }
+    )
 
-    def __init__(self, http: SafeHttpClient, cache: Cache, api_key: bytes, ttl_seconds: int) -> None:
+    def __init__(
+        self, http: SafeHttpClient, cache: Cache, api_key: bytes, ttl_seconds: int
+    ) -> None:
         self._http = http
         self._cache = cache
         self._api_key = api_key
@@ -144,7 +153,7 @@ class VirusTotalProvider(EnrichmentProvider):
             provider=self.name,
             reputation_score=_reputation_score(parsed.data.attributes.last_analysis_stats),
             tags=frozenset(t[:64] for t in parsed.data.attributes.tags[:32]),
-            fetched_at=datetime.now(timezone.utc),
+            fetched_at=datetime.now(UTC),
             ttl_seconds=self._ttl,
             truncated_raw=truncated_raw,
         )

@@ -6,6 +6,7 @@ Fix #5 (HTTP lifecycle: close_all in finally).
 Fix #10 (partial_scan surfaced to audit + output).
 Fix #5 (output-mode: analyst|summary|hash).
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -43,9 +44,14 @@ from tic.infra.logging import configure_logging, get_logger
 app = typer.Typer(add_completion=False, help="Run a correlation sweep.", no_args_is_help=False)
 _log = get_logger(__name__)
 
-_FEED_PARSERS = {"csv": parse_csv_feed, "ndjson": parse_ndjson_feed, "misp-json": parse_misp_feed, "stix": parse_stix_feed}
-_RENDERERS    = {"terminal": render_terminal, "json": render_json, "markdown": render_markdown}
-_MODES        = {"analyst": OutputMode.ANALYST, "summary": OutputMode.SUMMARY, "hash": OutputMode.HASH}
+_FEED_PARSERS = {
+    "csv": parse_csv_feed,
+    "ndjson": parse_ndjson_feed,
+    "misp-json": parse_misp_feed,
+    "stix": parse_stix_feed,
+}
+_RENDERERS = {"terminal": render_terminal, "json": render_json, "markdown": render_markdown}
+_MODES = {"analyst": OutputMode.ANALYST, "summary": OutputMode.SUMMARY, "hash": OutputMode.HASH}
 
 
 def _resolve_profile(settings: Settings) -> ScoringProfile:
@@ -59,13 +65,16 @@ def _resolve_profile(settings: Settings) -> ScoringProfile:
 def sweep(
     ctx: typer.Context,
     feed: Path = typer.Option(..., "--feed", exists=True, dir_okay=False, readable=True),
-    feed_format: str  = typer.Option("csv",      "--feed-format"),
-    logs: Path        = typer.Option(..., "--logs", exists=True, dir_okay=False, readable=True),
+    feed_format: str = typer.Option("csv", "--feed-format"),
+    logs: Path = typer.Option(..., "--logs", exists=True, dir_okay=False, readable=True),
     output_format: str = typer.Option("terminal", "--format"),
-    with_ai: bool     = typer.Option(False,  "--with-ai"),
-    fail_on: str      = typer.Option("high", "--fail-on"),
-    output_mode: str  = typer.Option("analyst", "--output-mode",
-                                     help="IOC detail: analyst (full) | summary (truncated) | hash (HMAC)"),
+    with_ai: bool = typer.Option(False, "--with-ai"),
+    fail_on: str = typer.Option("high", "--fail-on"),
+    output_mode: str = typer.Option(
+        "analyst",
+        "--output-mode",
+        help="IOC detail: analyst (full) | summary (truncated) | hash (HMAC)",
+    ),
 ) -> None:
     """Run a sweep: ingest a feed, correlate against logs, score, render."""
     if ctx.invoked_subcommand is not None:
@@ -86,10 +95,10 @@ def sweep(
         typer.echo(f"Unknown --fail-on '{fail_on}'.", err=True)
         raise typer.Exit(code=int(ExitCode.CONFIG_ERROR))
 
-    mode      = _MODES[output_mode]
-    cache     = None
+    mode = _MODES[output_mode]
+    cache = None
     providers: list = []
-    narrator  = None
+    narrator = None
 
     try:
         settings = load_settings()
@@ -97,7 +106,9 @@ def sweep(
         working_root = settings.paths.working_dir
 
         audit = HashChainAuditLogger(settings.paths.audit_log_path)
-        audit.append("cli_invoke", {"command": "sweep", "with_ai": with_ai, "output_mode": output_mode})
+        audit.append(
+            "cli_invoke", {"command": "sweep", "with_ai": with_ai, "output_mode": output_mode}
+        )
 
         if with_ai and not settings.ai.enabled:
             typer.echo("Warning: --with-ai requested but ai.enabled=false in config.", err=True)
@@ -115,29 +126,38 @@ def sweep(
                     "or pick --output-mode analyst|summary."
                 ),
             )
-        cache        = build_cache(settings)
-        providers    = build_providers(settings, secret_store=secret_store, cache=cache, audit=audit)
-        narrator     = (build_narrator(settings, secret_store=secret_store, audit=audit)
-                        if (with_ai and settings.ai.enabled) else None)
+        cache = build_cache(settings)
+        providers = build_providers(settings, secret_store=secret_store, cache=cache, audit=audit)
+        narrator = (
+            build_narrator(settings, secret_store=secret_store, audit=audit)
+            if (with_ai and settings.ai.enabled)
+            else None
+        )
 
         # Parser returns a generator; orchestrator materialises once.
-        iocs = _FEED_PARSERS[feed_format](feed, allowed_root=working_root, limits=settings.parser_limits)
+        iocs = _FEED_PARSERS[feed_format](
+            feed, allowed_root=working_root, limits=settings.parser_limits
+        )
 
         log_source = NdjsonFileLogSource(logs, allowed_root=working_root)
-        log_lines  = log_source.stream()
+        log_lines = log_source.stream()
 
-        profile    = _resolve_profile(settings)
+        profile = _resolve_profile(settings)
 
         # Renderer closure captures mode cleanly — no monkey-patching.
         # `hmac_key` is forwarded so hash mode pseudonymises with the keyring
         # value (never the zero-key fallback).
         base_render = _RENDERERS[output_format]
+
         def render_fn(findings: list[Finding], out) -> int:  # type: ignore[type-arg]
             return base_render(findings, out, mode=mode, hmac_key=hmac_key)
 
         orchestrator = SweepOrchestrator(
-            providers=providers, narrator=narrator, profile=profile,
-            audit=audit, min_severity_exit=severity_floor,
+            providers=providers,
+            narrator=narrator,
+            profile=profile,
+            audit=audit,
+            min_severity_exit=severity_floor,
             ai_max_findings_per_sweep=settings.ai.max_findings_per_sweep,
         )
 
@@ -147,8 +167,13 @@ def sweep(
 
         # Surface partial scan to audit log (#10).
         if log_source.partial_scan:
-            audit.append("partial_scan_warning", {"path": str(logs), "reason": "line_limit_reached"})
-            typer.echo("Warning: log file was partially scanned (line limit reached). Results may be incomplete.", err=True)
+            audit.append(
+                "partial_scan_warning", {"path": str(logs), "reason": "line_limit_reached"}
+            )
+            typer.echo(
+                "Warning: log file was partially scanned (line limit reached). Results may be incomplete.",
+                err=True,
+            )
 
         raise typer.Exit(code=int(exit_code))
 

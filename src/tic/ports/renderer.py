@@ -1,5 +1,6 @@
 # src/tic/ports/renderer.py
 """Renderer port. All output formatters implement this protocol."""
+
 from __future__ import annotations
 
 from collections.abc import Iterable

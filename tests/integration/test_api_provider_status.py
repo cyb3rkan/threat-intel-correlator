@@ -8,9 +8,9 @@ The endpoint MUST:
   body.
 - Not require a sweep to be runnable (no provider instantiation).
 """
+
 from __future__ import annotations
 
-import json
 from pathlib import Path
 from unittest.mock import patch
 
@@ -22,7 +22,6 @@ from tic.infra.config import (
     ProviderConfig,
     Settings,
 )
-
 
 _FAKE_KEY = b"unit-test-key-not-a-real-secret-32"
 
@@ -54,8 +53,11 @@ def _client(settings: Settings, secret_store) -> TestClient:
     """Build a TestClient with adapter.get_settings + build_secret_store
     monkey-patched. We import the FastAPI app fresh per test for isolation."""
     from tic.api import main as api_main
-    with patch.object(api_main.adapter, "get_settings", return_value=settings), \
-         patch.object(api_main, "build_secret_store", return_value=secret_store):
+
+    with (
+        patch.object(api_main.adapter, "get_settings", return_value=settings),
+        patch.object(api_main, "build_secret_store", return_value=secret_store),
+    ):
         yield_client = TestClient(api_main.app)
         return yield_client
 
@@ -63,8 +65,11 @@ def _client(settings: Settings, secret_store) -> TestClient:
 def test_status_returns_200_and_stable_shape(tmp_path):
     s = _settings(tmp_path)
     from tic.api import main as api_main
-    with patch.object(api_main.adapter, "get_settings", return_value=s), \
-         patch.object(api_main, "build_secret_store", return_value=_FakeSecretStore()):
+
+    with (
+        patch.object(api_main.adapter, "get_settings", return_value=s),
+        patch.object(api_main, "build_secret_store", return_value=_FakeSecretStore()),
+    ):
         c = TestClient(api_main.app)
         r = c.get("/api/providers/status")
     assert r.status_code == 200
@@ -74,8 +79,14 @@ def test_status_returns_200_and_stable_shape(tmp_path):
     assert names == {"abuseipdb", "virustotal", "misp"}
     for p in body["providers"]:
         assert set(p.keys()) == {
-            "name", "configured", "enabled", "key_present",
-            "supported_ioc_types", "endpoint_kind", "ready", "reason",
+            "name",
+            "configured",
+            "enabled",
+            "key_present",
+            "supported_ioc_types",
+            "endpoint_kind",
+            "ready",
+            "reason",
         }
     assert set(body["ai"].keys()) == {"enabled", "endpoint_count", "key_present", "ready", "reason"}
 
@@ -107,15 +118,20 @@ def test_status_endpoint_does_not_leak_secrets(tmp_path):
             ),
         },
     )
-    secret_store = _FakeSecretStore({
-        ("secret-ai-svc", "prod-user"): b"AI_KEY_DO_NOT_LEAK",
-        ("secret-misp-svc", "prod-user"): b"MISP_KEY_DO_NOT_LEAK",
-        ("secret-vt-svc", "prod-user"): b"VT_KEY_DO_NOT_LEAK",
-    })
+    secret_store = _FakeSecretStore(
+        {
+            ("secret-ai-svc", "prod-user"): b"AI_KEY_DO_NOT_LEAK",
+            ("secret-misp-svc", "prod-user"): b"MISP_KEY_DO_NOT_LEAK",
+            ("secret-vt-svc", "prod-user"): b"VT_KEY_DO_NOT_LEAK",
+        }
+    )
 
     from tic.api import main as api_main
-    with patch.object(api_main.adapter, "get_settings", return_value=s), \
-         patch.object(api_main, "build_secret_store", return_value=secret_store):
+
+    with (
+        patch.object(api_main.adapter, "get_settings", return_value=s),
+        patch.object(api_main, "build_secret_store", return_value=secret_store),
+    ):
         c = TestClient(api_main.app)
         r = c.get("/api/providers/status")
     assert r.status_code == 200
@@ -165,16 +181,21 @@ def test_status_reports_ready_for_fully_configured_providers(tmp_path):
             keyring_user="u",
         ),
     )
-    secret_store = _FakeSecretStore({
-        ("a", "u"): _FAKE_KEY,
-        ("v", "u"): _FAKE_KEY,
-        ("m", "u"): _FAKE_KEY,
-        ("ai", "u"): _FAKE_KEY,
-        (s.redaction_hmac_keyring_service, s.redaction_hmac_keyring_user): _FAKE_KEY,
-    })
+    secret_store = _FakeSecretStore(
+        {
+            ("a", "u"): _FAKE_KEY,
+            ("v", "u"): _FAKE_KEY,
+            ("m", "u"): _FAKE_KEY,
+            ("ai", "u"): _FAKE_KEY,
+            (s.redaction_hmac_keyring_service, s.redaction_hmac_keyring_user): _FAKE_KEY,
+        }
+    )
     from tic.api import main as api_main
-    with patch.object(api_main.adapter, "get_settings", return_value=s), \
-         patch.object(api_main, "build_secret_store", return_value=secret_store):
+
+    with (
+        patch.object(api_main.adapter, "get_settings", return_value=s),
+        patch.object(api_main, "build_secret_store", return_value=secret_store),
+    ):
         c = TestClient(api_main.app)
         r = c.get("/api/providers/status")
     body = r.json()
@@ -196,8 +217,11 @@ def test_status_reports_safe_state_when_ai_unavailable(tmp_path):
         ),
     )
     from tic.api import main as api_main
-    with patch.object(api_main.adapter, "get_settings", return_value=s), \
-         patch.object(api_main, "build_secret_store", return_value=_FakeSecretStore()):
+
+    with (
+        patch.object(api_main.adapter, "get_settings", return_value=s),
+        patch.object(api_main, "build_secret_store", return_value=_FakeSecretStore()),
+    ):
         c = TestClient(api_main.app)
         r = c.get("/api/providers/status")
     body = r.json()
@@ -211,9 +235,12 @@ def test_status_settles_for_minimal_default_config(tmp_path):
     """Smoke: the default empty config should still return a valid response
     (no providers configured, AI disabled, redaction key absent)."""
     from tic.api import main as api_main
+
     s = _settings(tmp_path)
-    with patch.object(api_main.adapter, "get_settings", return_value=s), \
-         patch.object(api_main, "build_secret_store", return_value=_FakeSecretStore()):
+    with (
+        patch.object(api_main.adapter, "get_settings", return_value=s),
+        patch.object(api_main, "build_secret_store", return_value=_FakeSecretStore()),
+    ):
         c = TestClient(api_main.app)
         r = c.get("/api/providers/status")
     assert r.status_code == 200

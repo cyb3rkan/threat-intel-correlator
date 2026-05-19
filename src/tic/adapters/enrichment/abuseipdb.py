@@ -1,19 +1,19 @@
 # src/tic/adapters/enrichment/abuseipdb.py
 """AbuseIPDB provider adapter. Handles only IPv4/IPv6 IOCs."""
+
 from __future__ import annotations
 
 import json
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 from pydantic import BaseModel, Field, ValidationError
 
 from tic.adapters.http.safe_client import SafeHttpClient
-from tic.domain.errors import ProviderError
 from tic.domain.finding import EnrichmentResult
 from tic.domain.ioc import IOC, IOCType
 from tic.infra.logging import get_logger
-from tic.ports.enrichment_provider import EnrichmentProvider
 from tic.ports.cache import Cache
+from tic.ports.enrichment_provider import EnrichmentProvider
 
 _log = get_logger(__name__)
 
@@ -91,12 +91,10 @@ class AbuseIPDBProvider(EnrichmentProvider):
         result = EnrichmentResult(
             provider=self.name,
             reputation_score=parsed.data.abuseConfidenceScore,
-            tags=frozenset(
-                t for t in (parsed.data.countryCode, parsed.data.usageType) if t
-            ),
-            fetched_at=datetime.now(timezone.utc),
+            tags=frozenset(t for t in (parsed.data.countryCode, parsed.data.usageType) if t),
+            fetched_at=datetime.now(UTC),
             ttl_seconds=self._ttl,
-            truncated_raw=""  # debug-only: set TIC_DEBUG_CACHE_RAW=true to enable,
+            truncated_raw="",  # debug-only: set TIC_DEBUG_CACHE_RAW=true to enable,
         )
 
         try:

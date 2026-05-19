@@ -1,5 +1,6 @@
 # src/tic/security/crypto.py
 """Cryptographic primitives: HMAC-based deterministic pseudonymization."""
+
 from __future__ import annotations
 
 import hmac

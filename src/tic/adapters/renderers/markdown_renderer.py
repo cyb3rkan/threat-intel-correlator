@@ -1,5 +1,6 @@
 # src/tic/adapters/renderers/markdown_renderer.py
 """Markdown renderer — uses PublicFinding DTO. mode parameter controls IOC detail."""
+
 from __future__ import annotations
 
 from collections.abc import Iterable
@@ -9,12 +10,28 @@ from tic.domain.finding import Finding, OutputMode, Severity
 from tic.security.ansi_strip import strip_terminal_controls
 
 _SEVERITY_BADGE = {
-    Severity.INFO: "INFO", Severity.LOW: "LOW", Severity.MEDIUM: "MEDIUM",
-    Severity.HIGH: "HIGH", Severity.CRITICAL: "CRITICAL",
+    Severity.INFO: "INFO",
+    Severity.LOW: "LOW",
+    Severity.MEDIUM: "MEDIUM",
+    Severity.HIGH: "HIGH",
+    Severity.CRITICAL: "CRITICAL",
 }
 
 _MD_SPECIAL: tuple[str, ...] = (
-    "\\", "`", "*", "_", "{", "}", "[", "]", "(", ")", "#", "<", ">", "|",
+    "\\",
+    "`",
+    "*",
+    "_",
+    "{",
+    "}",
+    "[",
+    "]",
+    "(",
+    ")",
+    "#",
+    "<",
+    ">",
+    "|",
 )
 
 
@@ -56,7 +73,9 @@ def render_markdown(
         out.write(f"- **Finding ID:** `{pub.finding_id}`\n")
         out.write(f"- **Profile hash:** `{pub.profile_hash[:16]}…`\n")
         if pub.enrichments:
-            out.write("\n**Enrichment results:**\n\n| Provider | Reputation | Tags |\n|---|---|---|\n")
+            out.write(
+                "\n**Enrichment results:**\n\n| Provider | Reputation | Tags |\n|---|---|---|\n"
+            )
             for e in pub.enrichments:
                 rep = str(e.reputation_score) if e.reputation_score is not None else "—"
                 tag_str = ", ".join(_md_escape(t) for t in sorted(e.tags)) or "—"
@@ -91,5 +110,6 @@ def render_markdown(
 
 class MarkdownRenderer:
     name = "markdown"
+
     def render(self, findings: Iterable[Finding], out: TextIO) -> int:
         return render_markdown(findings, out)

@@ -20,6 +20,7 @@ Returned shape contains only:
 - ready (bool)
 - reason (enum string)
 """
+
 from __future__ import annotations
 
 from typing import Any, Literal
@@ -109,16 +110,18 @@ def build_provider_status(
     for name in _KNOWN_PROVIDERS:
         cfg = settings.providers.get(name)
         if cfg is None:
-            providers_out.append({
-                "name": name,
-                "configured": False,
-                "enabled": False,
-                "key_present": False,
-                "supported_ioc_types": _supported_types_for(name),
-                "endpoint_kind": _endpoint_kind(name, has_endpoint=False),
-                "ready": False,
-                "reason": "not_configured",
-            })
+            providers_out.append(
+                {
+                    "name": name,
+                    "configured": False,
+                    "enabled": False,
+                    "key_present": False,
+                    "supported_ioc_types": _supported_types_for(name),
+                    "endpoint_kind": _endpoint_kind(name, has_endpoint=False),
+                    "ready": False,
+                    "reason": "not_configured",
+                }
+            )
             continue
 
         key_present = _key_present(secret_store, cfg.keyring_service, cfg.keyring_user)
@@ -137,16 +140,18 @@ def build_provider_status(
 
         ready = reason == "ok"
 
-        providers_out.append({
-            "name": name,
-            "configured": True,
-            "enabled": cfg.enabled,
-            "key_present": key_present,
-            "supported_ioc_types": _supported_types_for(name),
-            "endpoint_kind": endpoint_kind,
-            "ready": ready,
-            "reason": reason,
-        })
+        providers_out.append(
+            {
+                "name": name,
+                "configured": True,
+                "enabled": cfg.enabled,
+                "key_present": key_present,
+                "supported_ioc_types": _supported_types_for(name),
+                "endpoint_kind": endpoint_kind,
+                "ready": ready,
+                "reason": reason,
+            }
+        )
 
     # AI status — same closed-set approach.
     ai_key_present = _key_present(

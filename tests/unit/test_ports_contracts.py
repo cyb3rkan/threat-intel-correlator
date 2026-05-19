@@ -1,5 +1,6 @@
 # tests/unit/test_ports_contracts.py
 """Structural subtyping sanity checks for port Protocols."""
+
 from __future__ import annotations
 
 from collections.abc import Iterable, Iterator

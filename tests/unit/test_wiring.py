@@ -1,9 +1,10 @@
 # tests/unit/test_wiring.py
 """Tests for _wiring factory functions."""
+
 from __future__ import annotations
-from pathlib import Path
-from unittest.mock import MagicMock
+
 import pytest
+
 from tic.adapters.cache.sqlite_cache import SqliteCache
 from tic.cli import _wiring
 from tic.domain.errors import ConfigError
@@ -13,6 +14,7 @@ from tic.infra.config import AIConfig, HttpClientConfig, PathsConfig, ProviderCo
 class _FakeStore:
     def __init__(self, mapping):
         self._m = mapping
+
     def get(self, service, user):
         try:
             return self._m[(service, user)]
@@ -22,13 +24,15 @@ class _FakeStore:
 
 def _settings(tmp_path, providers=None):
     return Settings(
-        paths=PathsConfig(working_dir=tmp_path, cache_dir=tmp_path, audit_log_path=tmp_path/"a.log"),
+        paths=PathsConfig(
+            working_dir=tmp_path, cache_dir=tmp_path, audit_log_path=tmp_path / "a.log"
+        ),
         providers=providers or {},
         http=HttpClientConfig(),
     )  # type: ignore[call-arg]
 
 
-@pytest.fixture
+@pytest.fixture()
 def cache(tmp_path):
     return SqliteCache(tmp_path / "c.db", allowed_root=tmp_path)
 
@@ -40,8 +44,13 @@ def test_unknown_provider_raises(tmp_path, cache):
 
 
 def test_disabled_provider_skipped(tmp_path, cache):
-    s = _settings(tmp_path, {"abuseipdb": ProviderConfig(enabled=False, keyring_service="x", keyring_user="y")})
-    assert _wiring.build_providers(s, secret_store=_FakeStore({("x","y"): b"k"}), cache=cache) == []
+    s = _settings(
+        tmp_path,
+        {"abuseipdb": ProviderConfig(enabled=False, keyring_service="x", keyring_user="y")},
+    )
+    assert (
+        _wiring.build_providers(s, secret_store=_FakeStore({("x", "y"): b"k"}), cache=cache) == []
+    )
 
 
 def test_missing_key_skipped(tmp_path, cache):
@@ -51,17 +60,27 @@ def test_missing_key_skipped(tmp_path, cache):
 
 def test_abuseipdb_built(tmp_path, cache):
     s = _settings(tmp_path, {"abuseipdb": ProviderConfig(keyring_service="x", keyring_user="y")})
-    out = _wiring.build_providers(s, secret_store=_FakeStore({("x","y"): b"k"}), cache=cache)
+    out = _wiring.build_providers(s, secret_store=_FakeStore({("x", "y"): b"k"}), cache=cache)
     assert len(out) == 1 and out[0].name == "abuseipdb"
 
 
 def test_narrator_disabled(tmp_path):
-    s = Settings(paths=PathsConfig(working_dir=tmp_path, cache_dir=tmp_path, audit_log_path=tmp_path/"a.log"), ai=AIConfig(enabled=False))  # type: ignore[call-arg]
+    s = Settings(
+        paths=PathsConfig(
+            working_dir=tmp_path, cache_dir=tmp_path, audit_log_path=tmp_path / "a.log"
+        ),
+        ai=AIConfig(enabled=False),
+    )  # type: ignore[call-arg]
     assert _wiring.build_narrator(s, secret_store=_FakeStore({})) is None
 
 
 def test_narrator_no_endpoint(tmp_path):
-    s = Settings(paths=PathsConfig(working_dir=tmp_path, cache_dir=tmp_path, audit_log_path=tmp_path/"a.log"), ai=AIConfig(enabled=True, endpoint_allowlist=[]))  # type: ignore[call-arg]
+    s = Settings(
+        paths=PathsConfig(
+            working_dir=tmp_path, cache_dir=tmp_path, audit_log_path=tmp_path / "a.log"
+        ),
+        ai=AIConfig(enabled=True, endpoint_allowlist=[]),
+    )  # type: ignore[call-arg]
     assert _wiring.build_narrator(s, secret_store=_FakeStore({})) is None
 
 
@@ -95,7 +114,9 @@ def test_narrator_disabled_does_not_touch_keyring(tmp_path):
     """If ai.enabled is false, build_narrator must short-circuit before any
     keyring probe. We confirm by recording calls on a fake store."""
     s = Settings(
-        paths=PathsConfig(working_dir=tmp_path, cache_dir=tmp_path, audit_log_path=tmp_path / "a.log"),
+        paths=PathsConfig(
+            working_dir=tmp_path, cache_dir=tmp_path, audit_log_path=tmp_path / "a.log"
+        ),
         ai=AIConfig(enabled=False, endpoint_allowlist=["https://placeholder.test"]),
     )  # type: ignore[call-arg]
     store = _RecordingStore({})
@@ -108,7 +129,9 @@ def test_narrator_key_missing_returns_none_safely(tmp_path):
     no key — wiring must catch the exception and return None. The sweep
     must still be runnable (no exception propagates to the caller)."""
     s = Settings(
-        paths=PathsConfig(working_dir=tmp_path, cache_dir=tmp_path, audit_log_path=tmp_path / "a.log"),
+        paths=PathsConfig(
+            working_dir=tmp_path, cache_dir=tmp_path, audit_log_path=tmp_path / "a.log"
+        ),
         ai=AIConfig(
             enabled=True,
             endpoint_allowlist=["https://placeholder.test/v1/chat/completions"],
@@ -124,7 +147,9 @@ def test_narrator_redaction_hmac_missing_returns_none_safely(tmp_path):
     must still fail closed (returning None) — never construct a Redactor
     with a weak/empty key."""
     s = Settings(
-        paths=PathsConfig(working_dir=tmp_path, cache_dir=tmp_path, audit_log_path=tmp_path / "a.log"),
+        paths=PathsConfig(
+            working_dir=tmp_path, cache_dir=tmp_path, audit_log_path=tmp_path / "a.log"
+        ),
         ai=AIConfig(
             enabled=True,
             endpoint_allowlist=["https://placeholder.test/v1/chat/completions"],
@@ -148,10 +173,13 @@ def test_narrator_redaction_hmac_missing_returns_none_safely(tmp_path):
 
 class _FakeAudit:
     """In-memory AuditLogger double. Records appended events for inspection."""
+
     def __init__(self) -> None:
         self.events: list[tuple[str, dict]] = []
+
     def append(self, event_type, payload):
         self.events.append((event_type, dict(payload)))
+
     def verify_chain(self):
         return True
 
@@ -159,14 +187,22 @@ class _FakeAudit:
 class _LogRecorder:
     """Drop-in replacement for the structlog bound logger used by _wiring.
     Only the methods we exercise (warning) are implemented."""
+
     def __init__(self) -> None:
         self.records: list[tuple[str, dict]] = []
+
     def warning(self, event, **kw):
         self.records.append((event, kw))
+
     # Other levels we don't expect in this path but stub for safety.
-    def info(self, event, **kw): self.records.append((event, kw))
-    def debug(self, event, **kw): self.records.append((event, kw))
-    def error(self, event, **kw): self.records.append((event, kw))
+    def info(self, event, **kw):
+        self.records.append((event, kw))
+
+    def debug(self, event, **kw):
+        self.records.append((event, kw))
+
+    def error(self, event, **kw):
+        self.records.append((event, kw))
 
 
 def test_verify_tls_default_true_does_not_emit_warning_or_audit(tmp_path, cache, monkeypatch):
@@ -176,13 +212,18 @@ def test_verify_tls_default_true_does_not_emit_warning_or_audit(tmp_path, cache,
         tmp_path,
         {
             "abuseipdb": ProviderConfig(
-                enabled=True, keyring_service="x", keyring_user="y",
+                enabled=True,
+                keyring_service="x",
+                keyring_user="y",
             ),
         },
     )
     audit = _FakeAudit()
     out = _wiring.build_providers(
-        s, secret_store=_FakeStore({("x", "y"): b"k"}), cache=cache, audit=audit,
+        s,
+        secret_store=_FakeStore({("x", "y"): b"k"}),
+        cache=cache,
+        audit=audit,
     )
     assert len(out) == 1
     assert all(ev != "provider_tls_verify_disabled" for ev, _ in rec.records)
@@ -207,7 +248,10 @@ def test_misp_verify_tls_false_emits_warning_and_audit_event(tmp_path, cache, mo
     )
     audit = _FakeAudit()
     _wiring.build_providers(
-        s, secret_store=_FakeStore({("m", "y"): b"k"}), cache=cache, audit=audit,
+        s,
+        secret_store=_FakeStore({("m", "y"): b"k"}),
+        cache=cache,
+        audit=audit,
     )
 
     # Warning log present
@@ -224,6 +268,7 @@ def test_misp_verify_tls_false_emits_warning_and_audit_event(tmp_path, cache, mo
 
     # No secret material in event/log
     import json as _json
+
     blob = _json.dumps(
         {"logs": [(ev, kw) for ev, kw in rec.records], "audit": audit.events},
         default=str,
@@ -246,6 +291,8 @@ def test_build_providers_without_audit_still_works(tmp_path, cache):
         },
     )
     out = _wiring.build_providers(
-        s, secret_store=_FakeStore({("m", "y"): b"k"}), cache=cache,
+        s,
+        secret_store=_FakeStore({("m", "y"): b"k"}),
+        cache=cache,
     )
     assert len(out) == 1 and out[0].name == "misp"

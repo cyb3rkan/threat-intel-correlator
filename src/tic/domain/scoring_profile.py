@@ -10,6 +10,7 @@ Design note: `ScoringProfile` is a pure value object (frozen semantics via
 pydantic defaults + explicit hashing). It must remain free of I/O and of any
 dependency on infrastructure.
 """
+
 from __future__ import annotations
 
 from tic.application.scoring import ScoringProfile, ScoringWeights

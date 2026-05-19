@@ -28,8 +28,7 @@ def test_ndjson_source_streams_valid_lines(tmp_path: Path) -> None:
 def test_ndjson_source_skips_oversized_lines(tmp_path: Path) -> None:
     logs = tmp_path / "x.ndjson"
     logs.write_text(
-        '{"@timestamp":"2025-01-01T00:00:00Z","msg":"ok"}\n'
-        '{"msg":"' + "A" * 200 + '"}\n',
+        '{"@timestamp":"2025-01-01T00:00:00Z","msg":"ok"}\n' '{"msg":"' + "A" * 200 + '"}\n',
         encoding="utf-8",
     )
     src = NdjsonFileLogSource(logs, allowed_root=tmp_path, max_line_bytes=50)

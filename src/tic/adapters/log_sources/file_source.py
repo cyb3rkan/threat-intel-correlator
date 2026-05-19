@@ -6,12 +6,13 @@ Partial scan flag emitted to caller via StopIteration value (not implemented
 in generator protocol; instead raised as InputValidationError for file too
 large, and warning+return for line count).
 """
+
 from __future__ import annotations
 
 import csv
 import json
 from collections.abc import Iterator
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 
 from tic.application.correlation import LogLine
@@ -22,29 +23,34 @@ from tic.security.path_guard import safe_resolve_within
 _log = get_logger(__name__)
 
 DEFAULT_MAX_LINE_BYTES = 64 * 1024
-DEFAULT_MAX_FILE_BYTES = 2 * 1024 ** 3   # 2 GB
-DEFAULT_MAX_LINES      = 50_000_000
+DEFAULT_MAX_FILE_BYTES = 2 * 1024**3  # 2 GB
+DEFAULT_MAX_LINES = 50_000_000
 
 
 def _parse_ts(raw: str) -> datetime:
     if not raw:
-        return datetime.now(timezone.utc)
+        return datetime.now(UTC)
     try:
         return datetime.fromisoformat(raw.replace("Z", "+00:00"))
     except (ValueError, TypeError):
-        return datetime.now(timezone.utc)
+        return datetime.now(UTC)
 
 
 class NdjsonFileLogSource:
     name = "file-ndjson"
 
-    def __init__(self, path: Path, *, allowed_root: Path,
-                 max_line_bytes: int = DEFAULT_MAX_LINE_BYTES,
-                 max_file_bytes: int = DEFAULT_MAX_FILE_BYTES,
-                 max_lines: int = DEFAULT_MAX_LINES) -> None:
-        self._path      = safe_resolve_within(path, allowed_root=allowed_root)
-        self._max_line  = max_line_bytes
-        self._max_file  = max_file_bytes
+    def __init__(
+        self,
+        path: Path,
+        *,
+        allowed_root: Path,
+        max_line_bytes: int = DEFAULT_MAX_LINE_BYTES,
+        max_file_bytes: int = DEFAULT_MAX_FILE_BYTES,
+        max_lines: int = DEFAULT_MAX_LINES,
+    ) -> None:
+        self._path = safe_resolve_within(path, allowed_root=allowed_root)
+        self._max_line = max_line_bytes
+        self._max_file = max_file_bytes
         self._max_lines = max_lines
         self.partial_scan = False  # set to True when truncated
 
@@ -74,23 +80,28 @@ class NdjsonFileLogSource:
                 if not isinstance(obj, dict):
                     continue
                 ts_raw = obj.get("@timestamp") or obj.get("timestamp") or ""
-                yield LogLine(source=self._path.name,
-                              timestamp=_parse_ts(str(ts_raw)),
-                              text=stripped)
+                yield LogLine(
+                    source=self._path.name, timestamp=_parse_ts(str(ts_raw)), text=stripped
+                )
 
 
 class CsvFileLogSource:
     name = "file-csv"
 
-    def __init__(self, path: Path, *, allowed_root: Path,
-                 timestamp_column: str = "timestamp",
-                 max_line_bytes: int = DEFAULT_MAX_LINE_BYTES,
-                 max_file_bytes: int = DEFAULT_MAX_FILE_BYTES,
-                 max_lines: int = DEFAULT_MAX_LINES) -> None:
-        self._path      = safe_resolve_within(path, allowed_root=allowed_root)
-        self._ts_col    = timestamp_column
-        self._max_line  = max_line_bytes
-        self._max_file  = max_file_bytes
+    def __init__(
+        self,
+        path: Path,
+        *,
+        allowed_root: Path,
+        timestamp_column: str = "timestamp",
+        max_line_bytes: int = DEFAULT_MAX_LINE_BYTES,
+        max_file_bytes: int = DEFAULT_MAX_FILE_BYTES,
+        max_lines: int = DEFAULT_MAX_LINES,
+    ) -> None:
+        self._path = safe_resolve_within(path, allowed_root=allowed_root)
+        self._ts_col = timestamp_column
+        self._max_line = max_line_bytes
+        self._max_file = max_file_bytes
         self._max_lines = max_lines
         self.partial_scan = False
 

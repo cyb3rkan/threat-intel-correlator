@@ -2,12 +2,11 @@
 from __future__ import annotations
 
 import json
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 from tic.application.redaction import Redactor
 from tic.domain.finding import Finding, Match, Severity
 from tic.domain.ioc import IOC, IOCType
-
 
 _HMAC_KEY = b"0" * 32
 
@@ -21,7 +20,7 @@ def _finding(ioc_value: str = "evil.example.com") -> Finding:
             Match(
                 log_source="internal-host-01.corp.local",
                 field="user_email",
-                timestamp=datetime(2025, 1, 1, tzinfo=timezone.utc),
+                timestamp=datetime(2025, 1, 1, tzinfo=UTC),
                 raw_line_hash="a" * 64,
             )
         ],
@@ -30,7 +29,7 @@ def _finding(ioc_value: str = "evil.example.com") -> Finding:
         severity=Severity.MEDIUM,
         profile_hash="b" * 64,
         correlation_id="cid",
-        created_at=datetime(2025, 1, 1, tzinfo=timezone.utc),
+        created_at=datetime(2025, 1, 1, tzinfo=UTC),
     )
 
 
@@ -94,7 +93,12 @@ def test_redacted_finding_has_no_log_source_or_raw_line_hash() -> None:
     # `field` is genericised into a fixed enum value.
     if redacted.matches:
         assert redacted.matches[0].field_generic in {
-            "network", "host", "user", "hash", "url", "other"
+            "network",
+            "host",
+            "user",
+            "hash",
+            "url",
+            "other",
         }
 
 
@@ -103,5 +107,6 @@ def test_redactor_rejects_short_hmac_key() -> None:
     a deterministic zero-key fallback would let attackers correlate IOCs
     across deployments."""
     import pytest
+
     with pytest.raises(ValueError, match="32 bytes"):
         Redactor(b"too-short")

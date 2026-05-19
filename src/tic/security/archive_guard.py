@@ -1,5 +1,6 @@
 # src/tic/security/archive_guard.py
 """Safe archive (zip) extraction with decompression ratio + size caps."""
+
 from __future__ import annotations
 
 import zipfile

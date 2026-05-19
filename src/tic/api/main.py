@@ -13,6 +13,7 @@ All correlation/enrichment/scoring goes through tic.ui.adapter, which in turn
 reuses the existing CLI wiring (path guard, SSRF guard, keyring, audit, cache,
 CSV-injection mitigation, public-DTO masking).
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -55,6 +56,7 @@ class _CorrelationIdMiddleware(BaseHTTPMiddleware):
             raise
         response.headers[_CORRELATION_HEADER] = cid
         return response
+
 
 _ALLOWED_ORIGINS = (
     "http://127.0.0.1:3000",
@@ -114,6 +116,7 @@ async def _http_exception_with_correlation(request: Request, exc: HTTPException)
 # Helpers
 # ---------------------------------------------------------------------------
 
+
 def _validate_choice(value: str, allowed: set[str], field: str) -> str:
     if value not in allowed:
         raise HTTPException(
@@ -148,6 +151,7 @@ def _public_findings_payload(result: adapter.SweepResult, mode: str) -> list[dic
 # ---------------------------------------------------------------------------
 # Endpoints
 # ---------------------------------------------------------------------------
+
 
 @app.get("/api/health")
 def health() -> dict[str, Any]:
@@ -217,7 +221,9 @@ async def sweep(
     if len(feed_bytes) > _MAX_UPLOAD_BYTES or len(log_bytes) > _MAX_UPLOAD_BYTES:
         raise HTTPException(status_code=413, detail="Uploaded file exceeds size limit.")
     if not feed_bytes or not log_bytes:
-        raise HTTPException(status_code=400, detail="Both feed_file and log_file are required and non-empty.")
+        raise HTTPException(
+            status_code=400, detail="Both feed_file and log_file are required and non-empty."
+        )
 
     try:
         settings = adapter.get_settings()
@@ -250,7 +256,9 @@ async def sweep(
             )
         except adapter.SecurityViolationError:
             _log.warning("api_upload_path_violation")
-            raise HTTPException(status_code=400, detail="Upload rejected by path security check.") from None
+            raise HTTPException(
+                status_code=400, detail="Upload rejected by path security check."
+            ) from None
 
         req = adapter.SweepRequest(
             feed_path=feed_path,
@@ -288,7 +296,9 @@ async def sweep(
         raise
     except Exception as e:  # noqa: BLE001 — last-resort safety net
         _log.warning("api_unhandled_error", type=type(e).__name__)
-        raise HTTPException(status_code=500, detail="An unexpected error occurred during the sweep.") from None
+        raise HTTPException(
+            status_code=500, detail="An unexpected error occurred during the sweep."
+        ) from None
     finally:
         if upload_dir is not None:
             adapter.cleanup_upload_dir(upload_dir)

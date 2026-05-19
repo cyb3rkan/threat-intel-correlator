@@ -87,9 +87,10 @@ def test_to_ids_true_bumps_confidence(tmp_path: Path) -> None:
         ),
         encoding="utf-8",
     )
-    iocs = {ioc.value: ioc for ioc in parse_misp_feed(
-        feed, allowed_root=tmp_path, limits=ParserLimits()
-    )}
+    iocs = {
+        ioc.value: ioc
+        for ioc in parse_misp_feed(feed, allowed_root=tmp_path, limits=ParserLimits())
+    }
     assert iocs["1.2.3.4"].confidence > iocs["5.6.7.8"].confidence
 
 

@@ -90,9 +90,7 @@ def test_accepts_bare_indicator_list(tmp_path: Path) -> None:
 def test_confidence_propagated(tmp_path: Path) -> None:
     feed = tmp_path / "s.json"
     feed.write_text(
-        json.dumps(
-            _bundle(_indicator("[ipv4-addr:value = '1.1.1.1']", confidence=92))
-        ),
+        json.dumps(_bundle(_indicator("[ipv4-addr:value = '1.1.1.1']", confidence=92))),
         encoding="utf-8",
     )
     iocs = list(parse_stix_feed(feed, allowed_root=tmp_path, limits=ParserLimits()))

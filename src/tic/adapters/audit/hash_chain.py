@@ -1,12 +1,13 @@
 # src/tic/adapters/audit/hash_chain.py
 """Append-only, hash-chained audit log. Tamper-evident."""
+
 from __future__ import annotations
 
 import hashlib
 import json
 import os
 import threading
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
@@ -54,7 +55,7 @@ class HashChainAuditLogger(AuditLogger):
 
     def append(self, event_type: str, payload: dict[str, Any]) -> None:
         record = {
-            "ts": datetime.now(timezone.utc).isoformat(),
+            "ts": datetime.now(UTC).isoformat(),
             "type": event_type[:64],
             "payload": payload,
         }

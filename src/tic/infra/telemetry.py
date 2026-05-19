@@ -9,6 +9,7 @@ Scope (MVP):
   telemetry backends.
 - Read via `snapshot()` at shutdown or on demand; metrics are not streamed.
 """
+
 from __future__ import annotations
 
 import threading

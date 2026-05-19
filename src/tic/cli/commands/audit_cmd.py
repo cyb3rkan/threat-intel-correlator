@@ -1,8 +1,13 @@
 # src/tic/cli/commands/audit_cmd.py
 """`tic audit` — verify and tail the tamper-evident audit log."""
+
 from __future__ import annotations
-import json, sys
+
+import json
+import sys
+
 import typer
+
 from tic.adapters.audit.hash_chain import HashChainAuditLogger
 from tic.domain.errors import TICError
 from tic.infra.config import load_settings
@@ -10,7 +15,9 @@ from tic.infra.exit_codes import ExitCode
 from tic.infra.logging import configure_logging, get_logger
 from tic.security.ansi_strip import strip_terminal_controls
 
-app = typer.Typer(add_completion=False, help="Audit-log integrity and inspection.", no_args_is_help=True)
+app = typer.Typer(
+    add_completion=False, help="Audit-log integrity and inspection.", no_args_is_help=True
+)
 _log = get_logger(__name__)
 
 
@@ -52,7 +59,7 @@ def tail(n: int = typer.Option(20, "-n", "--lines", min=1, max=10000)) -> None:
             if not stripped:
                 continue
             try:
-                obj     = json.loads(stripped)
+                obj = json.loads(stripped)
                 cleaned = strip_terminal_controls(json.dumps(obj))
             except json.JSONDecodeError:
                 cleaned = strip_terminal_controls(stripped)

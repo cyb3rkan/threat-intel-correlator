@@ -15,10 +15,11 @@ We exercise this in two ways:
 We do not invoke a real AI provider, do not issue any HTTP request, and do
 not require a real API key.
 """
+
 from __future__ import annotations
 
 import json
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 import pytest
 
@@ -27,7 +28,6 @@ from tic.application.redaction import Redactor
 from tic.domain.finding import AINarrative, Finding, Severity
 from tic.domain.ioc import IOC, IOCType
 from tic.infra.logging import _redact_recursive
-
 
 _HMAC_KEY = b"0" * 32
 _RAW_IOC = "very-secret-ioc-value.example"
@@ -43,7 +43,7 @@ def _finding() -> Finding:
         severity=Severity.MEDIUM,
         profile_hash="a" * 64,
         correlation_id="cid",
-        created_at=datetime(2025, 1, 1, tzinfo=timezone.utc),
+        created_at=datetime(2025, 1, 1, tzinfo=UTC),
     )
 
 
@@ -118,7 +118,7 @@ class _CapturingAI:
         return None
 
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_narrator_never_passes_raw_ioc_or_headers_to_ai_layer() -> None:
     ai = _CapturingAI()
     narrator = Narrator(ai, Redactor(_HMAC_KEY))
@@ -132,7 +132,7 @@ async def test_narrator_never_passes_raw_ioc_or_headers_to_ai_layer() -> None:
         assert forbidden not in serialised, f"{forbidden!r} leaked into AI input"
 
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_narrator_failure_message_does_not_carry_secret_payload() -> None:
     """If the AI provider raises with a secret-looking message, the
     Narrator's `except Exception` must log only the exception *type*, never
@@ -192,4 +192,9 @@ def test_provider_status_dto_has_no_key_or_endpoint_url(tmp_path) -> None:
     # AI section is booleans/enum reason only.
     assert payload["ai"]["enabled"] is True
     assert payload["ai"]["ready"] is False  # no key available in this test
-    assert payload["ai"]["reason"] in {"no_keyring_key", "ai_disabled", "endpoint_allowlist_empty", "ok"}
+    assert payload["ai"]["reason"] in {
+        "no_keyring_key",
+        "ai_disabled",
+        "endpoint_allowlist_empty",
+        "ok",
+    }

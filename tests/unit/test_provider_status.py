@@ -7,12 +7,11 @@ Covers:
 - Leakage check: API keys, keyring service/user names, full endpoints,
   allowed_hosts, model names, file paths must never appear in the output.
 """
+
 from __future__ import annotations
 
 import json
 from pathlib import Path
-
-import pytest
 
 from tic.api._provider_status import build_provider_status
 from tic.infra.config import (
@@ -21,7 +20,6 @@ from tic.infra.config import (
     ProviderConfig,
     Settings,
 )
-
 
 _FAKE_KEY = b"unit-test-key-not-a-real-secret-32"
 
@@ -54,6 +52,7 @@ def _settings(**overrides) -> Settings:
 # ---------------------------------------------------------------------------
 # Provider matrix
 # ---------------------------------------------------------------------------
+
 
 def test_no_providers_configured_returns_not_configured_for_all_known() -> None:
     s = _settings()
@@ -158,13 +157,18 @@ def test_endpoint_kind_public_for_abuseipdb_and_virustotal() -> None:
         s,
         _FakeSecretStore({("a", "u"): _FAKE_KEY, ("v", "u"): _FAKE_KEY}),
     )
-    kinds = {p["name"]: p["endpoint_kind"] for p in out["providers"] if p["name"] in {"abuseipdb", "virustotal"}}
+    kinds = {
+        p["name"]: p["endpoint_kind"]
+        for p in out["providers"]
+        if p["name"] in {"abuseipdb", "virustotal"}
+    }
     assert kinds == {"abuseipdb": "public", "virustotal": "public"}
 
 
 # ---------------------------------------------------------------------------
 # AI matrix
 # ---------------------------------------------------------------------------
+
 
 def test_ai_disabled_by_default() -> None:
     out = build_provider_status(_settings(), _FakeSecretStore())
@@ -224,14 +228,14 @@ _BANNED_SUBSTRINGS = (
     "apikey",
     "secret",
     "password",
-    "ai-svc",          # keyring service name leak
-    "svc-misp",        # keyring service name leak
-    "misp.internal",   # full endpoint leak
-    "ai.example.test", # full endpoint leak
-    "1.2.3.4",         # allowed_hosts leak
-    "gpt",             # model leak
-    "model",           # field name (we deliberately don't expose the field at all)
-    "/home/",          # file path leak
+    "ai-svc",  # keyring service name leak
+    "svc-misp",  # keyring service name leak
+    "misp.internal",  # full endpoint leak
+    "ai.example.test",  # full endpoint leak
+    "1.2.3.4",  # allowed_hosts leak
+    "gpt",  # model leak
+    "model",  # field name (we deliberately don't expose the field at all)
+    "/home/",  # file path leak
     "C:\\",
     "Traceback",
 )
@@ -258,10 +262,12 @@ def test_response_does_not_leak_secrets_or_internals() -> None:
     )
     out = build_provider_status(
         s,
-        _FakeSecretStore({
-            ("ai-svc", "u"): b"super-secret-ai-key-do-not-leak",
-            ("svc-misp", "u"): b"super-secret-misp-key-do-not-leak",
-        }),
+        _FakeSecretStore(
+            {
+                ("ai-svc", "u"): b"super-secret-ai-key-do-not-leak",
+                ("svc-misp", "u"): b"super-secret-misp-key-do-not-leak",
+            }
+        ),
     )
     serialised = json.dumps(out)
     for banned in _BANNED_SUBSTRINGS:
@@ -275,7 +281,9 @@ def test_redaction_hmac_status_only_reports_presence_boolean() -> None:
     s = _settings()
     out = build_provider_status(
         s,
-        _FakeSecretStore({(s.redaction_hmac_keyring_service, s.redaction_hmac_keyring_user): _FAKE_KEY}),
+        _FakeSecretStore(
+            {(s.redaction_hmac_keyring_service, s.redaction_hmac_keyring_user): _FAKE_KEY}
+        ),
     )
     assert out["redaction_hmac"] == {"key_present": True}
 

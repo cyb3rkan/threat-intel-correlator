@@ -1,5 +1,6 @@
 # src/tic/infra/config.py
 """Typed, validated configuration loader."""
+
 from __future__ import annotations
 
 from pathlib import Path
@@ -40,6 +41,7 @@ class ProviderConfig(BaseModel):
     and must NEVER be used against production targets. Global verify_tls
     in HttpClientConfig is unaffected.
     """
+
     enabled: bool = True
     concurrency: int = Field(default=4, ge=1, le=32)
     cache_ttl_seconds: int = Field(default=3600, ge=60, le=2_592_000)
@@ -167,9 +169,10 @@ class Settings(BaseSettings):
     redaction_hmac_keyring_user: str = "default"
 
 
-def _xdg_default_paths() -> "PathsConfig | None":
+def _xdg_default_paths() -> PathsConfig | None:
     """XDG-compliant path defaults. Used ONLY when no explicit paths configured."""
     import os
+
     home = Path.home()
     xdg_cache = Path(os.environ.get("XDG_CACHE_HOME", home / ".cache"))
     xdg_state = Path(os.environ.get("XDG_STATE_HOME", home / ".local" / "state"))
@@ -206,14 +209,16 @@ def load_settings(config_file: Path | None = None) -> Settings:
             if candidate.exists():
                 config_file = candidate
 
-    has_paths_env = any(k in os.environ for k in {
-        "TIC_PATHS__WORKING_DIR", "TIC_PATHS__CACHE_DIR", "TIC_PATHS__AUDIT_LOG_PATH"
-    })
+    has_paths_env = any(
+        k in os.environ
+        for k in ("TIC_PATHS__WORKING_DIR", "TIC_PATHS__CACHE_DIR", "TIC_PATHS__AUDIT_LOG_PATH")
+    )
 
     yaml_has_paths = False
     if config_file is not None and Path(config_file).exists():
         try:
             import yaml as _yaml
+
             with open(config_file, encoding="utf-8") as _f:
                 _doc = _yaml.safe_load(_f) or {}
             yaml_has_paths = "paths" in _doc
@@ -227,6 +232,7 @@ def load_settings(config_file: Path | None = None) -> Settings:
             if config_file is not None and Path(config_file).exists():
                 try:
                     from pydantic_settings import YamlConfigSettingsSource
+
                     yaml_src = YamlConfigSettingsSource(settings_cls, yaml_file=config_file)
                     return (kwargs["init_settings"], kwargs["env_settings"], yaml_src)
                 except Exception:
@@ -244,6 +250,7 @@ def load_settings(config_file: Path | None = None) -> Settings:
         return _Settings(**init_kwargs)  # type: ignore[call-arg]
     except Exception as exc:
         from tic.domain.errors import ConfigError
+
         raise ConfigError(
             f"settings validation failed: {exc}",
             user_message=(

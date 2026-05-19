@@ -21,12 +21,12 @@ If the frontend tree is absent (e.g. a backend-only checkout), the test is
 skipped — Phase A's promise is "if it exists, it stays safe", not "the
 frontend must exist".
 """
+
 from __future__ import annotations
 
 import pathlib
 
 import pytest
-
 
 _FRONTEND_ROOT = pathlib.Path(__file__).resolve().parents[2] / "frontend"
 _EXCLUDED_DIRS = {"node_modules", ".next", "dist", "out", ".turbo", "coverage"}
@@ -39,8 +39,10 @@ _MAX_FILE_BYTES = 2 * 1024 * 1024  # 2 MB per file — generous but bounded
 # for `innerHTML =` because legitimate framework code may use it; the
 # dangerous React-specific sink is dangerouslySetInnerHTML.
 _FORBIDDEN_SUBSTRINGS: list[tuple[str, str]] = [
-    ("dangerouslySetInnerHTML",
-     "React's dangerouslySetInnerHTML must not be used; AI text is rendered as children only."),
+    (
+        "dangerouslySetInnerHTML",
+        "React's dangerouslySetInnerHTML must not be used; AI text is rendered as children only.",
+    ),
 ]
 
 
