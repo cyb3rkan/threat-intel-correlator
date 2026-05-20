@@ -1,10 +1,9 @@
-# src/tic/infra/config.py
 """Typed, validated configuration loader."""
 
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Literal
+from typing import Any, Literal
 
 from pydantic import BaseModel, Field, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -217,17 +216,21 @@ def load_settings(config_file: Path | None = None) -> Settings:
     yaml_has_paths = False
     if config_file is not None and Path(config_file).exists():
         try:
-            import yaml as _yaml
+            import yaml as _yaml  # type: ignore[import-untyped]
 
             with open(config_file, encoding="utf-8") as _f:
-                _doc = _yaml.safe_load(_f) or {}
+                _doc: dict[str, Any] = _yaml.safe_load(_f) or {}  # type: ignore[assignment]
             yaml_has_paths = "paths" in _doc
         except Exception:
             pass
 
     class _Settings(Settings):
         @classmethod
-        def settings_customise_sources(cls, settings_cls, **kwargs):  # type: ignore[override]
+        def settings_customise_sources(
+            cls,
+            settings_cls: type[BaseSettings],
+            **kwargs: Any,
+        ) -> tuple[Any, ...]:  # type: ignore[override]
             sources = super().settings_customise_sources(settings_cls, **kwargs)
             if config_file is not None and Path(config_file).exists():
                 try:
@@ -240,14 +243,14 @@ def load_settings(config_file: Path | None = None) -> Settings:
             return sources
 
     # Only inject XDG defaults if neither env vars NOR YAML provide paths.
-    init_kwargs: dict = {}
+    init_kwargs: dict[str, Any] = {}
     if not has_paths_env and not yaml_has_paths:
         dp = _xdg_default_paths()
         if dp is not None:
             init_kwargs["paths"] = dp
 
     try:
-        return _Settings(**init_kwargs)  # type: ignore[call-arg]
+        return _Settings(**init_kwargs)
     except Exception as exc:
         from tic.domain.errors import ConfigError
 

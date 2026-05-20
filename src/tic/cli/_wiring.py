@@ -1,9 +1,8 @@
-# src/tic/cli/_wiring.py
 """Provider/narrator factories + lifecycle close_all()."""
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 from tic.adapters.cache.sqlite_cache import SqliteCache
 from tic.adapters.enrichment.abuseipdb import AbuseIPDBProvider
@@ -62,7 +61,7 @@ def _build_one(
     *,
     secret_store: SecretStore,
     cache: Cache,
-    http_cfg,
+    http_cfg: Any,
     audit: AuditLogger | None = None,
 ) -> EnrichmentProvider | None:
     try:

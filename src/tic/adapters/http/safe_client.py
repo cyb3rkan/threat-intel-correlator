@@ -1,4 +1,3 @@
-# src/tic/adapters/http/safe_client.py
 """Hardened HTTP client.
 
 Security fixes applied:
@@ -212,7 +211,7 @@ class SafeHttpClient:
                             reraise=True,
                         )
                         try:
-                            return await retrying(_do)()  # type: ignore[misc]
+                            return await retrying(_do)()
                         except RetryError as e:
                             raise NetworkError("all retries exhausted") from e
                     return await _do()

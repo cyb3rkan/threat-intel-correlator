@@ -1,4 +1,3 @@
-# src/tic/adapters/ai_providers/gemini.py
 """Gemini-native generateContent adapter.
 
 The OpenAI compatibility surface at
@@ -38,6 +37,7 @@ from __future__ import annotations
 import asyncio
 import json
 from collections.abc import Callable
+from typing import Any
 
 from tic.adapters.http.safe_client import SafeHttpClient
 from tic.application.ai.prompt_builder import build_messages
@@ -80,7 +80,7 @@ _RETRY_SUFFIX = (
 # Gemini's `responseSchema` rejects keys it does not understand and
 # enforces the listed required keys at the model level. This is a belt
 # AND suspenders alongside `parse_and_validate`'s pydantic check.
-_RESPONSE_SCHEMA: dict = {
+_RESPONSE_SCHEMA: dict[str, Any] = {
     "type": "OBJECT",
     "properties": {
         "summary": {"type": "STRING"},
@@ -108,7 +108,7 @@ _RESPONSE_SCHEMA: dict = {
 
 def _messages_to_gemini_contents(
     messages: list[dict[str, str]],
-) -> tuple[dict | None, list[dict]]:
+) -> tuple[dict[str, Any] | None, list[dict[str, Any]]]:
     """Translate OpenAI-style chat messages into Gemini's split format.
 
     Gemini distinguishes a single `systemInstruction` from a list of
@@ -119,8 +119,8 @@ def _messages_to_gemini_contents(
     untrusted IOC data only ever appears under `role: user`, never
     inside `systemInstruction`.
     """
-    system_instruction: dict | None = None
-    contents: list[dict] = []
+    system_instruction: dict[str, Any] | None = None
+    contents: list[dict[str, Any]] = []
     for m in messages:
         role = m.get("role")
         text = m.get("content", "")
@@ -184,7 +184,7 @@ class GeminiProvider(AIProvider):
     # Request body assembly
     # ------------------------------------------------------------------
 
-    def _build_body(self, finding: RedactedFinding, *, retry: bool) -> dict | None:
+    def _build_body(self, finding: RedactedFinding, *, retry: bool) -> dict[str, Any] | None:
         """Build the generateContent body. On retry, the system prompt
         gets a stricter suffix and `maxOutputTokens` is halved (floor 64)
         so the model is less likely to truncate mid-string.
@@ -211,7 +211,7 @@ class GeminiProvider(AIProvider):
             # truncate mid-string at the original limit.
             max_tokens = max(64, max_tokens // 2)
 
-        body: dict = {
+        body: dict[str, Any] = {
             "contents": contents,
             "generationConfig": {
                 "temperature": 0.1,
@@ -233,7 +233,7 @@ class GeminiProvider(AIProvider):
     # Single round-trip
     # ------------------------------------------------------------------
 
-    async def _post_once(self, body: dict) -> tuple[AINarrative | None, str | None]:
+    async def _post_once(self, body: dict[str, Any]) -> tuple[AINarrative | None, str | None]:
         """POST the request once. Returns `(narrative, retry_reason)`:
 
         - `(AINarrative, None)`   → success
@@ -265,7 +265,7 @@ class GeminiProvider(AIProvider):
             return None, None
 
         try:
-            obj = json.loads(resp.body_bytes)
+            obj: dict[str, Any] = json.loads(resp.body_bytes)
             # generateContent shape:
             #   { candidates: [ { content: { parts: [ { text: "..." } ] } } ] }
             text = obj["candidates"][0]["content"]["parts"][0]["text"]
@@ -283,7 +283,7 @@ class GeminiProvider(AIProvider):
     # Public entry point (with one-shot retry)
     # ------------------------------------------------------------------
 
-    async def narrate(self, finding: RedactedFinding) -> AINarrative | None:
+    async def narrate(self, finding: RedactedFinding) -> AINarrative | None:  # type: ignore[override]
         body = self._build_body(finding, retry=False)
         if body is None:
             return None

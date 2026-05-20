@@ -1,4 +1,3 @@
-# src/tic/infra/logging.py
 """Structured logging setup with mandatory redaction of sensitive keys."""
 
 from __future__ import annotations
@@ -8,7 +7,7 @@ import re
 import sys
 import uuid
 from contextvars import ContextVar
-from typing import Any
+from typing import Any, cast
 
 import structlog
 
@@ -96,4 +95,4 @@ def configure_logging(*, level: str = "INFO", fmt: str = "json") -> None:
 
 
 def get_logger(name: str) -> structlog.stdlib.BoundLogger:
-    return structlog.get_logger(name)
+    return cast(structlog.stdlib.BoundLogger, structlog.get_logger(name))

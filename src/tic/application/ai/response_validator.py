@@ -1,4 +1,3 @@
-# src/tic/application/ai/response_validator.py
 """Strict JSON schema validation for AI narrative output.
 
 Phase B hardening:
@@ -22,7 +21,7 @@ from __future__ import annotations
 import json
 import re
 from datetime import UTC, datetime
-from typing import Literal
+from typing import Any, Literal
 
 from pydantic import ValidationError
 
@@ -176,13 +175,13 @@ def _action_is_unsafe(action: str) -> bool:
     return False
 
 
-def _filter_suggested_actions(obj: dict) -> tuple[dict, int]:
+def _filter_suggested_actions(obj: dict[str, Any]) -> tuple[dict[str, Any], int]:
     """Return a copy of `obj` with unsafe `suggested_actions` dropped, plus
     the number of actions removed."""
     actions = obj.get("suggested_actions")
     if not isinstance(actions, list):
         return obj, 0
-    safe: list = []
+    safe: list[Any] = []
     dropped = 0
     for entry in actions:
         if not isinstance(entry, str):
@@ -194,7 +193,7 @@ def _filter_suggested_actions(obj: dict) -> tuple[dict, int]:
         safe.append(entry)
     if dropped == 0:
         return obj, 0
-    new = dict(obj)
+    new: dict[str, Any] = dict(obj)
     new["suggested_actions"] = safe
     return new, dropped
 
@@ -224,18 +223,16 @@ def parse_and_classify(raw: str, *, model: str) -> tuple[AINarrative | None, Par
         raw = raw.strip()
 
     try:
-        obj = json.loads(raw)
+        parsed = json.loads(raw)
     except json.JSONDecodeError as e:
         _log.warning("ai_response_not_json", error=str(e)[:120])
         return None, "invalid_json"
 
-    if not isinstance(obj, dict):
+    if not isinstance(parsed, dict):
         _log.warning("ai_response_not_object")
         return None, "invalid_json"
 
-    # Phase B: filter unsafe suggested_actions BEFORE pydantic validation so
-    # an oversize/illegal entry that we would have dropped does not knock
-    # the whole response out via the length cap.
+    obj: dict[str, Any] = parsed
     obj, dropped = _filter_suggested_actions(obj)
     if dropped:
         # Metadata-only log; we never log the rejected text itself because

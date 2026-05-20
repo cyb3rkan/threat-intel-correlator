@@ -1,4 +1,3 @@
-# src/tic/application/orchestrator.py
 """Sweep orchestrator.
 
 Fixes:
@@ -25,7 +24,7 @@ import asyncio
 import uuid
 from collections.abc import Iterable
 from datetime import UTC, datetime
-from typing import TextIO
+from typing import Any, Callable, TextIO
 
 from tic.application.correlation import Correlator, LogLine
 from tic.application.scoring import ScoringInputs, ScoringProfile, compute_score
@@ -42,7 +41,7 @@ _DEFAULT_CONCURRENCY = 4
 _DEFAULT_AI_CAP = 25
 
 
-def _ai_selection_key(f: Finding) -> tuple:
+def _ai_selection_key(f: Finding) -> tuple[int, ...]:
     """Deterministic ranking key for top-N AI selection.
 
     Sort order (descending priority first):
@@ -85,7 +84,7 @@ class SweepOrchestrator:
         # we re-clamp here for defensive callers that bypass AIConfig.
         self._ai_cap = max(1, min(100, int(ai_max_findings_per_sweep)))
 
-    async def _enrich_one(self, provider: EnrichmentProvider, ioc: IOC):
+    async def _enrich_one(self, provider: EnrichmentProvider, ioc: IOC) -> Any:
         async with self._sem:
             try:
                 return await provider.enrich(ioc)
@@ -99,7 +98,7 @@ class SweepOrchestrator:
         iocs: Iterable[IOC],
         log_lines: Iterable[LogLine],
         out: TextIO,
-        render_fn,
+        render_fn: Callable[[list[Finding], TextIO], int],
     ) -> ExitCode:
         cid = new_correlation_id()
         self._audit.append(

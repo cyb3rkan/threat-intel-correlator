@@ -1,4 +1,3 @@
-# src/tic/application/ai/narrator.py
 """Narrator: redaction -> truncation -> AI provider -> validated narrative.
 
 Phase B introduced optional, metadata-only audit hooks. Phase C adds:
@@ -31,7 +30,7 @@ Audit-write failures are isolated — the sweep continues.
 from __future__ import annotations
 
 import time
-from typing import Literal
+from typing import Any, Literal
 
 from tic.application.ai.prompt_builder import _truncate_redacted
 from tic.application.redaction import RedactedFinding, Redactor
@@ -83,7 +82,7 @@ class Narrator:
     # Audit helpers — all metadata-only and isolated from sweep failure.
     # ------------------------------------------------------------------
 
-    def _safe_audit(self, event_type: str, payload: dict) -> None:
+    def _safe_audit(self, event_type: str, payload: dict[str, Any]) -> None:
         """Append an audit event; never raise. A failing audit sink must
         not break the sweep — we drop to a structlog warning and move on.
 
@@ -103,7 +102,7 @@ class Narrator:
             )
 
     def _audit_invoke(self, finding_id: str, *, latency_ms: int | None = None) -> None:
-        payload: dict[str, object] = {"finding_id": finding_id}
+        payload: dict[str, Any] = {"finding_id": finding_id}
         if latency_ms is not None:
             payload["latency_ms"] = int(latency_ms)
         self._safe_audit("ai_invoke", payload)
@@ -120,7 +119,7 @@ class Narrator:
     def _audit_truncated(self, finding_id: str, meta: dict[str, int]) -> None:
         # Defensive copy + injected finding_id; the meta dict from the
         # prompt_builder only carries counts, never raw content.
-        payload = {"finding_id": finding_id}
+        payload: dict[str, Any] = {"finding_id": finding_id}
         payload.update({k: int(v) for k, v in meta.items()})
         self._safe_audit("ai_input_truncated", payload)
 
@@ -179,7 +178,7 @@ class Narrator:
         # which is the actionable signal for cost/SLA dashboards.
         start_ns = time.monotonic_ns()
         try:
-            narrative = await self._ai.narrate(prepared)
+            narrative = await self._ai.narrate(prepared)  # type: ignore[arg-type]
         except TimeoutError as e:
             elapsed_ms = (time.monotonic_ns() - start_ns) // 1_000_000
             _log.warning(

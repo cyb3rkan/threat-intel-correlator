@@ -1,4 +1,3 @@
-# src/tic/adapters/ai_providers/openai_compat.py
 """OpenAI-compatible chat completions adapter.
 
 Phase B hardening:
@@ -38,7 +37,7 @@ class OpenAICompatProvider(AIProvider):
         self._api_key = api_key
         self._endpoint = endpoint
 
-    async def narrate(self, finding: RedactedFinding) -> AINarrative | None:
+    async def narrate(self, finding: RedactedFinding) -> AINarrative | None:  # type: ignore[override]
         body = {
             "model": self._cfg.model,
             "messages": build_messages(

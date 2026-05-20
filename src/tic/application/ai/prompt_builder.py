@@ -1,4 +1,3 @@
-# src/tic/application/ai/prompt_builder.py
 """Builds strict, injection-resistant prompts. Only RedactedFinding is accepted.
 
 Phase B hardening:
@@ -30,7 +29,7 @@ from __future__ import annotations
 
 import copy
 import json
-from typing import Literal
+from typing import Any, Literal
 
 from tic.application.redaction import RedactedFinding
 
@@ -207,7 +206,7 @@ def _truncate_redacted(
     # We mutate a deep copy through a dict round-trip so the frozen pydantic
     # model is not in our way. The resulting dict is re-validated as a
     # RedactedFinding at the end so the schema invariants still hold.
-    data = copy.deepcopy(redacted.model_dump())
+    data: dict[str, Any] = copy.deepcopy(redacted.model_dump())
     original_matches = list(data.get("matches", []))
     original_enrichments = list(data.get("enrichments", []))
 
@@ -236,9 +235,9 @@ def _truncate_redacted(
 
 
 def _approx_size(
-    base: dict,
-    matches: list,
-    enrichments: list,
+    base: dict[str, Any],
+    matches: list[Any],
+    enrichments: list[Any],
 ) -> int:
     """Cheap size approximation for the truncation loop."""
     base = dict(base)

@@ -1,4 +1,3 @@
-# src/tic/cli/commands/config_cmd.py
 """`tic config` — show config and manage keyring secrets.
 
 Fix #12: endpoints/allowed_hosts masked by default; --verbose shows full values.

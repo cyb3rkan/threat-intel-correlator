@@ -1,4 +1,3 @@
-# src/tic/ui/adapter.py
 """Streamlit-independent adapter for `tic sweep`.
 
 Reuses the existing wiring + orchestrator + parsers + log source + renderers.
@@ -185,7 +184,7 @@ def cleanup_upload_dir(upload_dir: Path) -> None:
 def _resolve_profile(settings: Settings) -> ScoringProfile:
     if settings.scoring_profile_path is None:
         return ScoringProfile(version="1.0.0")
-    import yaml  # local import keeps cold-import footprint small
+    import yaml  # local import keeps cold-import footprint small  # type: ignore[import-untyped]
 
     with open(settings.scoring_profile_path, encoding="utf-8") as f:
         return ScoringProfile.model_validate(yaml.safe_load(f))
@@ -218,7 +217,7 @@ async def _run_async(req: SweepRequest, settings: Settings) -> SweepResult:
     )
 
     cache: Any = None
-    providers: list = []
+    providers: list[Any] = []
     narrator = None
     try:
         secret_store = build_secret_store()

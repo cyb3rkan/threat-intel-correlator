@@ -1,4 +1,3 @@
-# src/tic/application/correlation.py
 """IOC × log correlation. Boundary validators compiled once per IOC (fix #13)."""
 
 from __future__ import annotations
@@ -9,7 +8,7 @@ from collections.abc import Iterable, Iterator
 from dataclasses import dataclass
 from datetime import datetime
 
-import ahocorasick
+import ahocorasick  # type: ignore[import-not-found]
 
 from tic.domain.finding import Match
 from tic.domain.ioc import IOC, IOCType
@@ -18,12 +17,12 @@ from tic.infra.logging import get_logger
 _log = get_logger(__name__)
 
 _BOUNDARY_TEMPLATES: dict[IOCType, str] = {
-    IOCType.IP: r"(?:^|(?<=[^0-9.])){{V}}(?=$|[^0-9.])",
-    IOCType.DOMAIN: r"(?:^|(?<=[^a-zA-Z0-9.\-])){{V}}(?=$|[^a-zA-Z0-9.\-])",
-    IOCType.HASH_MD5: r"(?:^|(?<=[^0-9a-f])){{V}}(?=$|[^0-9a-f])",
-    IOCType.HASH_SHA1: r"(?:^|(?<=[^0-9a-f])){{V}}(?=$|[^0-9a-f])",
-    IOCType.HASH_SHA256: r"(?:^|(?<=[^0-9a-f])){{V}}(?=$|[^0-9a-f])",
-    IOCType.HASH_SHA512: r"(?:^|(?<=[^0-9a-f])){{V}}(?=$|[^0-9a-f])",
+    IOCType.IP: r"(?:^|(?<<=[^0-9.])){{V}}(?=$|[^0-9.])",
+    IOCType.DOMAIN: r"(?:^|(?<<=[^a-zA-Z0-9.\-])){{V}}(?=$|[^a-zA-Z0-9.\-])",
+    IOCType.HASH_MD5: r"(?:^|(?<<=[^0-9a-f])){{V}}(?=$|[^0-9a-f])",
+    IOCType.HASH_SHA1: r"(?:^|(?<<=[^0-9a-f])){{V}}(?=$|[^0-9a-f])",
+    IOCType.HASH_SHA256: r"(?:^|(?<<=[^0-9a-f])){{V}}(?=$|[^0-9a-f])",
+    IOCType.HASH_SHA512: r"(?:^|(?<<=[^0-9a-f])){{V}}(?=$|[^0-9a-f])",
 }
 
 

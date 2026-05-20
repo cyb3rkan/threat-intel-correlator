@@ -1,4 +1,3 @@
-# src/tic/cli/commands/sweep.py
 """`tic sweep` command.
 
 Fix #6 (renderer mode via parameter, no monkey-patch).
@@ -14,7 +13,7 @@ import sys
 from pathlib import Path
 
 import typer
-import yaml
+import yaml  # type: ignore[import-untyped]
 
 from tic.adapters.audit.hash_chain import HashChainAuditLogger
 from tic.adapters.log_sources.file_source import NdjsonFileLogSource
@@ -97,7 +96,7 @@ def sweep(
 
     mode = _MODES[output_mode]
     cache = None
-    providers: list = []
+    providers: list[Any] = []
     narrator = None
 
     try:
@@ -149,7 +148,7 @@ def sweep(
         # value (never the zero-key fallback).
         base_render = _RENDERERS[output_format]
 
-        def render_fn(findings: list[Finding], out) -> int:  # type: ignore[type-arg]
+        def render_fn(findings: list[Finding], out: TextIO) -> int:
             return base_render(findings, out, mode=mode, hmac_key=hmac_key)
 
         orchestrator = SweepOrchestrator(
