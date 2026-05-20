@@ -62,6 +62,9 @@ jobs:
         with:
           python-version: "3.11"
 
+      - name: Upgrade pip
+        run: python -m pip install --upgrade pip
+
       - name: Install Poetry
         uses: snok/install-poetry@v1
         with:
@@ -74,8 +77,3 @@ jobs:
 
       - name: pip-audit
         run: poetry run pip-audit --ignore threat-intel-correlator
-
-
-
-
-
