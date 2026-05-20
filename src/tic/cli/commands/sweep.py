@@ -11,6 +11,7 @@ from __future__ import annotations
 import asyncio
 import sys
 from pathlib import Path
+from typing import Any, TextIO
 
 import typer
 import yaml  # type: ignore[import-untyped]
