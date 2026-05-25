@@ -20,8 +20,7 @@ Only the latest minor release on the `main` branch is supported. Older
 If you believe you have found a vulnerability in TIC, please report it
 privately. **Do not open a public issue.**
 
-- Preferred: email the maintainers at `security@example.com`
-  (replace with the project's real disclosure inbox before publishing).
+- Please use GitHub's private vulnerability reporting: https://github.com/cyb3rkan/threat-intel-correlator/security/advisories/new
 - Include a clear reproduction, the affected version, and any relevant
   configuration (with secrets redacted).
 - Allow a reasonable disclosure window (typically 90 days) before

@@ -59,6 +59,8 @@ audit_chain.jsonl
 *.db
 *.sqlite
 *.sqlite3
+26.1
+26.1.1
 
 # Static analysis / security
 .bandit
