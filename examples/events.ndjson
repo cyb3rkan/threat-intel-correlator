@@ -1,0 +1,5 @@
+{"@timestamp":"2025-01-12T08:14:02Z","source":"firewall","event":"connection","src_ip":"10.0.0.5","dst_ip":"198.51.100.23","action":"allow"}
+{"@timestamp":"2025-01-12T08:15:31Z","source":"dns","event":"query","host":"workstation-14","query":"evil.example.com","answer":"203.0.113.77"}
+{"@timestamp":"2025-01-12T08:16:10Z","source":"proxy","event":"http","user":"jdoe","url":"http://evil.example.com/login","status":200}
+{"@timestamp":"2025-01-12T08:20:44Z","source":"edr","event":"file_write","host":"workstation-14","path":"C:\\Temp\\payload.exe","file_hash_md5":"44d88612fea8a8f36de82e1278abb02f"}
+{"@timestamp":"2025-01-12T08:22:05Z","source":"firewall","event":"connection","src_ip":"10.0.0.9","dst_ip":"8.8.8.8","action":"allow"}

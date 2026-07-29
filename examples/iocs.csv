@@ -1,0 +1,5 @@
+value,confidence,source,tags
+198.51.100.23,90,sample-feed,ipv4;c2
+203.0.113.77,75,sample-feed,ipv4;scanner
+evil.example.com,80,sample-feed,domain;phishing
+44d88612fea8a8f36de82e1278abb02f,60,sample-feed,md5;malware

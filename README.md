@@ -50,10 +50,12 @@ secrets in YAML or env files committed to the repo.
 
 ```powershell
 poetry run tic --help
+
+# Try it immediately with the bundled samples under examples/:
 poetry run tic sweep `
   --feed-format csv `
-  --feed-path D:\tic-work\known_good_iocs.csv `
-  --log-path D:\tic-work\known_good_events.ndjson `
+  --feed examples/iocs.csv `
+  --logs examples/events.ndjson `
   --output-mode analyst `
   --fail-on high
 ```
@@ -288,16 +290,19 @@ npm run lint
 npm run build
 ```
 
-## Test fixtures
+## Sample data
 
-Put local sample files under `D:\tic-work\` (or any writable directory):
+Ready-to-run samples live under `examples/` (used by the Quick Start above):
 
-- `known_good_iocs.csv` — a CSV feed with at least the columns expected by
-  `parse_csv_feed` (e.g. `value, type, source, confidence, tags`).
-- `known_good_events.ndjson` — one JSON object per line. Each line is treated as a
-  log event and matched against the feed.
+- `examples/iocs.csv` — a CSV feed. Only the `value` column is required;
+  `confidence`, `source`, and `tags` are optional. The IOC type (ip / domain /
+  url / hash…) is auto-detected from each value.
+- `examples/events.ndjson` — one JSON object per line. Each line is scanned in
+  full, so IOC values may appear in any field.
 
-These files are **never** committed to the repo.
+They contain only documentation-range placeholders (`198.51.100.x`,
+`203.0.113.x`, `evil.example.com`) — no real infrastructure. Drop in your own
+files anywhere writable and point `--feed` / `--logs` at them.
 
 ---
 
