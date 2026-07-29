@@ -44,7 +44,7 @@ jobs:
 
       - name: Lint (ruff)
         # Full lint config from pyproject.toml (not a reduced F,E9 subset), so the
-        # S/B/PL/PT quality + security rules actually gate PRs. See AUDIT_REPORT D-1.
+        # S/B/PL/PT quality + security rules actually gate PRs.
         run: poetry run ruff check src tests
 
       - name: Type check (mypy)
@@ -79,8 +79,8 @@ jobs:
 
       - name: pip-audit (must match security.yml gate)
         # A CVE in any dependency fails this step (pip-audit exits non-zero on
-        # findings regardless of --strict). See AUDIT_REPORT D-3. pip is upgraded
-        # first because an outdated runner pip can carry its own advisories.
+        # findings regardless of --strict). pip is upgraded first because an
+        # outdated runner pip can carry its own advisories.
         # --skip-editable drops the editable-installed first-party package
         # (threat-intel-correlator), which is not on PyPI and cannot be audited;
         # --strict is omitted because it would treat that intentional skip as an

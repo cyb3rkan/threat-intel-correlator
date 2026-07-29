@@ -1,5 +1,5 @@
 # tests/integration/test_orchestrator_concurrency.py
-"""Part 3: concurrent enrichment, sweep deadline, deterministic output, and
+"""Concurrent enrichment, sweep deadline, deterministic output, and
 audit-chain + cache safety under concurrency."""
 from __future__ import annotations
 

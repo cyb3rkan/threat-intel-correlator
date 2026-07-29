@@ -1,5 +1,5 @@
 # tests/unit/test_audit_retention.py
-"""Audit-log rotation / retention (Part 5, Finding 3)."""
+"""Audit-log rotation / retention."""
 
 from __future__ import annotations
 

@@ -1,5 +1,5 @@
 # tests/unit/test_env_secret_store.py
-"""Part 4: env-var-backed SecretStore for container runtime + backend selection."""
+"""Env-var-backed SecretStore for container runtime + backend selection."""
 from __future__ import annotations
 
 import pytest
