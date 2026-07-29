@@ -3,14 +3,14 @@
 A defensive, **local-only** tool for correlating IOC feeds (CSV / NDJSON / MISP / STIX) against
 NDJSON log files, enriching with provider data, scoring, and producing public-safe findings.
 
-It ships in three forms — pick the one that fits your workflow:
+It ships in two forms — pick the one that fits your workflow:
 
 | Form               | Entry point                                      | Use when                                    |
 |--------------------|--------------------------------------------------|---------------------------------------------|
 | CLI                | `tic sweep …`                                    | Pipelines, scripting, headless runs         |
 | FastAPI + Next.js  | `uvicorn tic.api.main:app` + `frontend/`         | Rich local dashboard with charts / filters  |
 
-All three reuse the **same** core logic (`src/tic/`). The web UIs only render `PublicFinding`
+Both reuse the **same** core logic (`src/tic/`). The web UI only renders `PublicFinding`
 fields — raw log lines, raw provider responses, API keys and tracebacks are never returned.
 
 ---
@@ -226,6 +226,49 @@ Set `TIC_DEBUG_CACHE_RAW=true` only for local troubleshooting — this stores
 the first 2 KB of provider responses inside the cache (still never returned
 by the API). Unset it for any production-style use.
 
+---
+
+## Container & Kubernetes deployment (optional)
+
+The tool is local-first, but a container image and a Helm chart are provided for
+teams that want to run the API in a cluster. The pod is hardened
+(`runAsNonRoot`, `readOnlyRootFilesystem`, all capabilities dropped, a
+restrictive `NetworkPolicy`) and reads secrets from an injected Kubernetes
+Secret rather than the OS keyring.
+
+```bash
+# Build the API image (or use frontend/Dockerfile for the dashboard).
+docker build -t ghcr.io/your-org/tic:0.1.0 .
+
+# Docker Compose (API + frontend, local):
+docker compose up
+```
+
+Helm chart (under `deploy/helm/tic`) renders a Deployment, Service,
+ServiceAccount, PersistentVolumeClaim, NetworkPolicy, and — when enabled —
+Ingress and a Prometheus ServiceMonitor:
+
+```bash
+# 1. Create the Secret the chart references (secretBackend: env).
+kubectl create secret generic tic-api-keys -n tic \
+  --from-literal=virustotal-key=<key> \
+  --from-literal=abuseipdb-key=<key> \
+  --from-literal=redaction-hmac-key=<32+ byte secret> \
+  --from-literal=audit-hmac-key=<32+ byte secret>
+
+# 2. Lint / render before applying.
+helm lint deploy/helm/tic
+helm template tic deploy/helm/tic
+
+# 3. Install.
+helm install tic deploy/helm/tic -n tic --create-namespace
+```
+
+Raw manifests (no Helm) live under `deploy/k8s/`. See `deploy/helm/tic/values.yaml`
+for the full set of tunables (persistence, ingress, ServiceMonitor, egress CIDRs).
+
+---
+
 ## Tests
 
 ```powershell
@@ -235,11 +278,13 @@ poetry run pytest tests/security -q                # security corpus
 poetry run pytest tests/unit/test_ui_adapter.py -v # adapter tests
 ```
 
-Frontend type-check / build:
+Frontend type-check / lint / build (the same gates CI runs):
 
 ```powershell
 cd frontend
+npm ci
 npm run typecheck
+npm run lint
 npm run build
 ```
 
@@ -265,8 +310,12 @@ These files are **never** committed to the repo.
 - **Public-safe DTOs.** Only `PublicFinding` data crosses the API boundary —
   `EnrichmentResult.truncated_raw`, raw log lines, and provider raw payloads stay in the
   backend.
-- **Path-guarded uploads.** Files are staged under `settings.paths.working_dir/.tic-ui-uploads/<uuid>/`,
-  resolved through `safe_resolve_within`, and removed after each sweep.
+- **Path-guarded, streamed uploads.** Files are streamed straight to disk in bounded
+  chunks (never buffered whole in memory) under
+  `settings.paths.working_dir/.tic-ui-uploads/<uuid>/`, resolved through
+  `safe_resolve_within`, and removed after each sweep. The HTTP size ceiling is the
+  parser's own `parser_limits.max_file_size_bytes`, so the API never stages a file the
+  parser would reject.
 - **CSV formula-injection mitigation.** Both backend and frontend exports prefix cells
   starting with `= + - @ \t \r` with `'`.
 - **No secrets in source.** API keys come from the OS keyring on the backend side and are
