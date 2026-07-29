@@ -1,0 +1,15 @@
+apiVersion: v2
+name: tic
+description: Threat Intel Correlator — local-first defensive security platform
+type: application
+version: 0.1.0
+appVersion: "0.1.0"
+keywords:
+  - security
+  - threat-intelligence
+  - soc
+  - blue-team
+home: https://github.com/your-org/threat-intel-correlator
+maintainers:
+  - name: TIC Maintainers
+    email: security@example.com

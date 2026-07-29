@@ -1,0 +1,48 @@
+# Threat Intel Correlator -- local full-stack (backend + frontend).
+#
+#   docker compose up --build
+#
+#   backend  -> http://localhost:8000   (FastAPI / uvicorn)
+#   frontend -> http://localhost:3000   (Next.js)
+#
+# The browser (your host) talks to BOTH published ports directly. The frontend
+# bundle is built with NEXT_PUBLIC_API_BASE=http://localhost:8000 because the
+# API call originates in the browser, not inside the frontend container -- and
+# api.ts only permits loopback hosts. So the two services do not need to reach
+# each other over the compose network; each is just published to the host.
+
+services:
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: tic-backend:local
+    # Override the loopback-only default CMD so the port is reachable from the
+    # host once published. 0.0.0.0 here is inside the container only.
+    command: ["--host", "0.0.0.0", "--port", "8000"]
+    ports:
+      - "127.0.0.1:8000:8000"
+    # The image runs read-only in production; locally we give it a writable
+    # named volume for the SQLite cache + audit chain, and tmpfs for uploads.
+    volumes:
+      - backend-data:/app/data
+    tmpfs:
+      - /tmp
+    restart: unless-stopped
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+      args:
+        # Baked into the client bundle at build time; the browser uses it.
+        NEXT_PUBLIC_API_BASE: http://localhost:8000
+    image: tic-frontend:local
+    ports:
+      - "127.0.0.1:3000:3000"
+    depends_on:
+      - backend
+    restart: unless-stopped
+
+volumes:
+  backend-data:

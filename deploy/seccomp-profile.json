@@ -1,0 +1,53 @@
+{
+  "_comment": "Seccomp profile for TIC API container. Allowlist of syscalls required by Python 3.11 + uvicorn + httpx on Linux. Generated from strace baseline and minimized for CWE-250 (Unnecessary Privilege).",
+  "defaultAction": "SCMP_ACT_ERRNO",
+  "architectures": ["SCMP_ARCH_X86_64", "SCMP_ARCH_AARCH64"],
+  "syscalls": [
+    {
+      "comment": "Process lifecycle",
+      "names": ["exit", "exit_group", "kill", "waitid", "waitpid", "wait4", "clone", "clone3", "fork", "vfork", "execve", "execveat", "getpid", "gettid", "getppid", "setpgid", "setsid", "prctl"],
+      "action": "SCMP_ACT_ALLOW"
+    },
+    {
+      "comment": "Memory management",
+      "names": ["brk", "mmap", "munmap", "mprotect", "mremap", "msync", "madvise", "mincore", "memfd_create"],
+      "action": "SCMP_ACT_ALLOW"
+    },
+    {
+      "comment": "File I/O (no device writes — read-only root FS enforced at OCI level)",
+      "names": ["read", "write", "readv", "writev", "pread64", "pwrite64", "sendfile", "open", "openat", "openat2", "close", "stat", "fstat", "lstat", "statx", "newfstatat", "access", "faccessat", "faccessat2", "lseek", "dup", "dup2", "dup3", "fcntl", "ioctl", "flock", "fsync", "fdatasync", "truncate", "ftruncate", "getdents64", "mkdir", "mkdirat", "rename", "renameat", "renameat2", "unlink", "unlinkat", "symlink", "symlinkat", "readlink", "readlinkat", "chmod", "fchmod", "chown", "fchown", "lchown", "fchownat", "umask"],
+      "action": "SCMP_ACT_ALLOW"
+    },
+    {
+      "comment": "Network (outbound only — bind blocked by NetworkPolicy)",
+      "names": ["socket", "connect", "sendto", "sendmsg", "sendmmsg", "recvfrom", "recvmsg", "recvmmsg", "setsockopt", "getsockopt", "getsockname", "getpeername", "bind", "listen", "accept", "accept4", "shutdown", "socketpair", "poll", "ppoll", "select", "pselect6", "epoll_create", "epoll_create1", "epoll_ctl", "epoll_wait", "epoll_pwait", "epoll_pwait2"],
+      "action": "SCMP_ACT_ALLOW"
+    },
+    {
+      "comment": "Time & signals",
+      "names": ["gettimeofday", "time", "clock_gettime", "clock_getres", "clock_nanosleep", "nanosleep", "alarm", "setitimer", "getitimer", "timer_create", "timer_settime", "timer_gettime", "timer_delete", "timerfd_create", "timerfd_settime", "timerfd_getfd", "rt_sigaction", "rt_sigprocmask", "rt_sigreturn", "rt_sigsuspend", "rt_sigtimedwait", "sigaltstack", "pause"],
+      "action": "SCMP_ACT_ALLOW"
+    },
+    {
+      "comment": "Threading (Python threading module)",
+      "names": ["futex", "futex_waitv", "set_robust_list", "get_robust_list", "set_tid_address", "getrandom", "arch_prctl", "rseq"],
+      "action": "SCMP_ACT_ALLOW"
+    },
+    {
+      "comment": "Credentials (read-only — no setuid)",
+      "names": ["getuid", "getgid", "geteuid", "getegid", "getgroups", "getresuid", "getresgid"],
+      "action": "SCMP_ACT_ALLOW"
+    },
+    {
+      "comment": "Misc kernel interface",
+      "names": ["uname", "sysinfo", "getcwd", "chdir", "fchdir", "pipe", "pipe2", "eventfd", "eventfd2", "inotify_init", "inotify_init1", "inotify_add_watch", "inotify_rm_watch", "seccomp"],
+      "action": "SCMP_ACT_ALLOW"
+    },
+    {
+      "comment": "Explicitly denied: privilege escalation vectors",
+      "names": ["ptrace", "setuid", "setgid", "setresuid", "setresgid", "setreuid", "setregid", "capset", "capget", "mount", "umount2", "pivot_root", "chroot", "swapon", "swapoff", "reboot", "kexec_load", "init_module", "finit_module", "delete_module", "iopl", "ioperm", "modify_ldt", "vm86", "vm86old", "lookup_dcookie", "nfsservctl", "quotactl"],
+      "action": "SCMP_ACT_ERRNO",
+      "errnoRet": 1
+    }
+  ]
+}

@@ -1,0 +1,155 @@
+# deploy/monitoring/alerts.yaml
+# Prometheus alerting rules for TIC.
+#
+# Alert tiers:
+#   P1 (critical): page-worthy, service is down or SLO is burning fast.
+#   P2 (warning):  investigate within 1 hour.
+#   P3 (info):     investigate during business hours.
+#
+# SLO baseline (from RUNBOOK.md):
+#   - API availability: 99.9% during active sessions
+#   - Enrichment error rate: < 5% (SLO budget: 95% of requests succeed)
+#   - Circuit recovery: < 60s after provider restoration
+#
+# SLO burn-rate alerts use the multi-window / multi-burn-rate approach
+# (Google SRE Workbook, Chapter 5).
+
+groups:
+  - name: tic.slo
+    interval: 1m
+    rules:
+      # ── Error budget burn-rate (SLO: 95% enrichment success) ─────────────
+      - alert: TicEnrichmentErrorBudgetFast
+        expr: |
+          (
+            rate(tic_enrichment_errors_total[5m]) /
+            rate(tic_enrichment_requests_total[5m])
+          ) > 0.20
+          and
+          (
+            rate(tic_enrichment_errors_total[1h]) /
+            rate(tic_enrichment_requests_total[1h])
+          ) > 0.10
+        for: 2m
+        labels:
+          severity: critical
+          tier: P1
+        annotations:
+          summary: "TIC enrichment error budget burning fast (>10x rate)"
+          description: >
+            Enrichment error rate is {{ $value | humanizePercentage }} over 5m.
+            Error budget is burning at >10x normal rate. Investigate provider
+            status and circuit breaker state.
+          runbook_url: "https://github.com/your-org/tic/blob/main/docs/RUNBOOK.md#4-circuit-breaker"
+
+      - alert: TicEnrichmentErrorBudgetSlow
+        expr: |
+          (
+            rate(tic_enrichment_errors_total[30m]) /
+            rate(tic_enrichment_requests_total[30m])
+          ) > 0.08
+          and
+          (
+            rate(tic_enrichment_errors_total[6h]) /
+            rate(tic_enrichment_requests_total[6h])
+          ) > 0.05
+        for: 15m
+        labels:
+          severity: warning
+          tier: P2
+        annotations:
+          summary: "TIC enrichment error budget burning (slow burn)"
+          description: >
+            Enrichment error rate is {{ $value | humanizePercentage }} over 30m.
+            Sustained degradation detected.
+
+  - name: tic.providers
+    interval: 30s
+    rules:
+      # ── Circuit breaker open ─────────────────────────────────────────────
+      - alert: TicCircuitBreakerOpen
+        expr: tic_circuit_breaker_state > 0
+        for: 0m
+        labels:
+          severity: warning
+          tier: P2
+        annotations:
+          summary: "TIC circuit breaker OPEN for provider {{ $labels.provider }}"
+          description: >
+            The circuit breaker for provider '{{ $labels.provider }}' is OPEN.
+            Enrichment for this provider is being short-circuited.
+            Recovery window: 30 seconds.
+          runbook_url: "https://github.com/your-org/tic/blob/main/docs/RUNBOOK.md#4-circuit-breaker"
+
+      - alert: TicCircuitBreakerOpenProlonged
+        expr: tic_circuit_breaker_state > 0
+        for: 5m
+        labels:
+          severity: critical
+          tier: P1
+        annotations:
+          summary: "TIC circuit breaker stuck OPEN for {{ $labels.provider }} (>5 min)"
+          description: >
+            Provider '{{ $labels.provider }}' circuit has been OPEN for >5 minutes.
+            Provider may be permanently unavailable. Manual intervention required.
+
+      # ── Provider error rate ───────────────────────────────────────────────
+      - alert: TicProviderHighErrorRate
+        expr: |
+          rate(tic_provider_errors_total[5m]) > 0.5
+        for: 3m
+        labels:
+          severity: warning
+          tier: P2
+        annotations:
+          summary: "High error rate from provider {{ $labels.provider }}"
+          description: >
+            Provider '{{ $labels.provider }}' is returning >0.5 errors/sec.
+            Error type: {{ $labels.error_type }}.
+
+  - name: tic.rate_limiting
+    interval: 30s
+    rules:
+      - alert: TicRateLimitExceededFrequent
+        expr: rate(tic_rate_limit_exceeded_total[5m]) > 0.1
+        for: 2m
+        labels:
+          severity: warning
+          tier: P3
+        annotations:
+          summary: "TIC rate limit exceeded frequently on {{ $labels.endpoint }}"
+          description: >
+            Rate limit exceeded >0.1/sec over 5 minutes on {{ $labels.endpoint }}.
+            This may indicate a client bug or denial-of-service attempt.
+
+  - name: tic.availability
+    interval: 30s
+    rules:
+      # ── API liveness (blackbox probe) ─────────────────────────────────────
+      - alert: TicApiDown
+        expr: up{job="tic-api"} == 0
+        for: 1m
+        labels:
+          severity: critical
+          tier: P1
+        annotations:
+          summary: "TIC API is unreachable"
+          description: >
+            The TIC API has not responded to Prometheus scrapes for >1 minute.
+            Check process health and container logs.
+          runbook_url: "https://github.com/your-org/tic/blob/main/docs/RUNBOOK.md#2-startup"
+
+  - name: tic.bulkhead
+    interval: 30s
+    rules:
+      - alert: TicBulkheadSaturated
+        expr: tic_bulkhead_queue_depth > 4
+        for: 2m
+        labels:
+          severity: warning
+          tier: P2
+        annotations:
+          summary: "TIC bulkhead queue depth high for {{ $labels.provider }}"
+          description: >
+            Provider '{{ $labels.provider }}' bulkhead queue depth is {{ $value }}.
+            Requests may be being rejected (BulkheadFullError).

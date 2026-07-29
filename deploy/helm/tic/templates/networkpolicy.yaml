@@ -1,0 +1,64 @@
+{{- if .Values.networkPolicy.enabled }}
+# NetworkPolicy -- Zero Trust posture. Egress is restrictive by default:
+# DNS (required for provider resolution + the SSRF guard) plus HTTPS to the
+# parametrized provider CIDRs only. Everything else is denied.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ include "tic.fullname" . }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "tic.labels" . | nindent 4 }}
+spec:
+  podSelector:
+    matchLabels:
+      {{- include "tic.selectorLabels" . | nindent 6 }}
+  policyTypes:
+    - Ingress
+    - Egress
+  ingress:
+    - from:
+        - podSelector:
+            {{- toYaml .Values.networkPolicy.ingressFromFrontend.podSelector | nindent 12 }}
+      ports:
+        - protocol: TCP
+          port: {{ .Values.service.port }}
+  egress:
+    # DNS (CoreDNS). REQUIRED: without it no provider hostname resolves and the
+    # SSRF guard cannot resolve either.
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: {{ .Values.networkPolicy.egress.dnsNamespace }}
+      ports:
+        - protocol: UDP
+          port: 53
+        - protocol: TCP
+          port: 53
+    # HTTPS to enrichment provider APIs (restrictive default set in values).
+    - to:
+        {{- range .Values.networkPolicy.egress.allowedCIDRs }}
+        - ipBlock:
+            cidr: {{ . }}
+            {{- with $.Values.networkPolicy.egress.excludedCIDRs }}
+            except:
+              {{- toYaml . | nindent 14 }}
+            {{- end }}
+        {{- end }}
+      ports:
+        - protocol: TCP
+          port: {{ .Values.networkPolicy.egress.httpsPort }}
+    {{- if .Values.networkPolicy.egress.otel.enabled }}
+    # Optional OTel collector egress.
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: {{ .Values.networkPolicy.egress.otel.namespace }}
+          podSelector:
+            matchLabels:
+              app.kubernetes.io/name: {{ .Values.networkPolicy.egress.otel.podLabel }}
+      ports:
+        - protocol: TCP
+          port: {{ .Values.networkPolicy.egress.otel.port }}
+    {{- end }}
+{{- end }}

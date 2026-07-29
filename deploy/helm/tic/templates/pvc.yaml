@@ -1,0 +1,22 @@
+# PersistentVolumeClaim for cache + audit log persistence. The Deployment
+# mounts this at /app/data via claimName "<fullname>-data" when
+# persistence.enabled is true; otherwise it falls back to an emptyDir and this
+# manifest is not rendered.
+{{- if .Values.persistence.enabled }}
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: {{ include "tic.fullname" . }}-data
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "tic.labels" . | nindent 4 }}
+spec:
+  accessModes:
+    - {{ .Values.persistence.accessMode }}
+  resources:
+    requests:
+      storage: {{ .Values.persistence.size }}
+  {{- with .Values.persistence.storageClass }}
+  storageClassName: {{ . | quote }}
+  {{- end }}
+{{- end }}

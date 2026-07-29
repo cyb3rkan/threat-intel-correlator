@@ -1,0 +1,16 @@
+[allowlist]
+description = "Allow redaction test placeholders, not real secrets"
+regexes = [
+  '''Bearer placeholder''',
+  '''Bearer placeholder-not-a-real-token''',
+  '''Bearer abc123''',
+  '''Authorization: Bearer abcdefghijklmnopqrstuvwxyz''',
+  '''REDACTED'''
+]
+paths = [
+  '''^docs/OPERATIONS\.md$''',
+  '''^tests/security/test_ai_logging_redaction\.py$''',
+  '''^tests/unit/test_logging\.py$''',
+  '''^tests/unit/test_narrator_audit\.py$''',
+  '''^tests/unit/test_redaction_patterns\.py$'''
+]

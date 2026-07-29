@@ -1,0 +1,13 @@
+# .trivyignore -- accepted container-scan exceptions (one CVE ID per line).
+#
+# The release pipeline fails on ANY unlisted HIGH/CRITICAL finding. To accept a
+# specific advisory after review, add its ID below with a justification comment
+# (and, where you track it, a re-evaluation date). Keep this list short and
+# reviewed -- every entry is a suppressed risk.
+#
+# Format / example:
+#   # CVE-2024-XXXXX: openssl in the base image; no fixed version upstream yet.
+#   #   Not reachable from TIC (no inbound TLS termination). Re-evaluate 2025-12.
+#   CVE-2024-XXXXX
+#
+# (empty: no exceptions are currently accepted)

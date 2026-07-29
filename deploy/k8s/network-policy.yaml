@@ -1,0 +1,87 @@
+# deploy/k8s/network-policy.yaml
+# NetworkPolicy — Zero Trust network posture for TIC.
+#
+# Ingress: only from frontend pod and Prometheus scraper.
+# Egress: only to enrichment provider IPs (HTTPS/443) and optional OTel collector.
+# All other traffic denied by default.
+#
+# CWE-923 (Improper Restriction of Communication Channel).
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: tic-api-policy
+  namespace: tic
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: tic
+      app.kubernetes.io/component: api
+
+  policyTypes:
+    - Ingress
+    - Egress
+
+  ingress:
+    # Allow from TIC frontend pod.
+    - from:
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/name: tic
+              app.kubernetes.io/component: frontend
+      ports:
+        - protocol: TCP
+          port: 8000
+
+    # Allow Prometheus scrape.
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: monitoring
+          podSelector:
+            matchLabels:
+              app.kubernetes.io/name: prometheus
+      ports:
+        - protocol: TCP
+          port: 8000
+
+  egress:
+    # DNS (CoreDNS).
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: kube-system
+      ports:
+        - protocol: UDP
+          port: 53
+        - protocol: TCP
+          port: 53
+
+    # HTTPS outbound to enrichment provider APIs. Restrictive default:
+    # public internet only, with internal/link-local/metadata ranges excluded
+    # (defense-in-depth with the app-level SSRF guard). Narrow the cidr below
+    # to specific provider ranges to tighten further. The Helm chart
+    # parametrizes this (values.networkPolicy.egress).
+    - to:
+        - ipBlock:
+            cidr: 0.0.0.0/0
+            except:
+              - 10.0.0.0/8
+              - 172.16.0.0/12
+              - 192.168.0.0/16
+              - 169.254.0.0/16
+              - 127.0.0.0/8
+      ports:
+        - protocol: TCP
+          port: 443
+
+    # Optional: OTel collector (change port if using HTTP 4318).
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: monitoring
+          podSelector:
+            matchLabels:
+              app.kubernetes.io/name: otel-collector
+      ports:
+        - protocol: TCP
+          port: 4317

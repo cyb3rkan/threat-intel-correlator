@@ -1,0 +1,15 @@
+# deploy/k8s/pdb.yaml
+# PodDisruptionBudget — ensures graceful rolling upgrades.
+# minAvailable: 0 is intentional for a single-replica local tool.
+# Change to 1 if scaling to 2+ replicas.
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: tic-api-pdb
+  namespace: tic
+spec:
+  minAvailable: 0
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: tic
+      app.kubernetes.io/component: api

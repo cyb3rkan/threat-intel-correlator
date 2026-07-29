@@ -1,0 +1,120 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "tic.fullname" . }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "tic.labels" . | nindent 4 }}
+spec:
+  replicas: {{ .Values.replicaCount }}
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      {{- include "tic.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "tic.selectorLabels" . | nindent 8 }}
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/path: "/api/metrics"
+        prometheus.io/port: "{{ .Values.service.port }}"
+    spec:
+      automountServiceAccountToken: false
+      serviceAccountName: {{ include "tic.fullname" . }}
+      securityContext:
+        {{- toYaml .Values.podSecurityContext | nindent 8 }}
+      containers:
+        - name: tic-api
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          # The image binds 127.0.0.1 by default (local-first); bind all
+          # interfaces in-cluster so probes and the Service can reach the pod.
+          args:
+            - "--host"
+            - {{ .Values.bindHost | quote }}
+            - "--port"
+            - {{ .Values.bindPort | quote }}
+          securityContext:
+            {{- toYaml .Values.securityContext | nindent 12 }}
+          ports:
+            - name: http
+              containerPort: {{ .Values.service.port }}
+              protocol: TCP
+          env:
+            # Read secrets from injected env vars (keyring is unusable under a
+            # read-only root filesystem with no D-Bus).
+            - name: TIC_SECRET_BACKEND
+              value: {{ .Values.secretBackend | quote }}
+            - name: TIC_PATHS__WORKING_DIR
+              value: /app/data
+            - name: TIC_PATHS__CACHE_DIR
+              value: /app/data/cache
+            - name: TIC_PATHS__AUDIT_LOG_PATH
+              value: /app/data/audit_chain.jsonl
+            # EnvSecretStore convention TIC_SECRET__{SERVICE}__{USER}. All four
+            # secret types served (providers + redaction-HMAC + Part-2 audit
+            # HMAC); the audit HMAC is required when audit.sign=true.
+            - name: TIC_SECRET__TIC_VIRUSTOTAL__DEFAULT
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.existingSecret }}
+                  key: {{ .Values.secretKeys.virustotal }}
+                  optional: true
+            - name: TIC_SECRET__TIC_ABUSEIPDB__DEFAULT
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.existingSecret }}
+                  key: {{ .Values.secretKeys.abuseipdb }}
+                  optional: true
+            - name: TIC_SECRET__TIC_REDACTION_HMAC__DEFAULT
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.existingSecret }}
+                  key: {{ .Values.secretKeys.redactionHmac }}
+                  optional: true
+            - name: TIC_SECRET__TIC_AUDIT_HMAC__DEFAULT
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.existingSecret }}
+                  key: {{ .Values.secretKeys.auditHmac }}
+                  optional: true
+            {{- if .Values.otel.enabled }}
+            - name: TIC_OTEL_ENDPOINT
+              value: {{ .Values.otel.endpoint | quote }}
+            {{- end }}
+          resources:
+            {{- toYaml .Values.resources | nindent 12 }}
+          startupProbe:
+            httpGet:
+              path: /api/health
+              port: http
+            {{- toYaml .Values.probes.startup | nindent 12 }}
+          livenessProbe:
+            httpGet:
+              path: /api/health
+              port: http
+            {{- toYaml .Values.probes.liveness | nindent 12 }}
+          readinessProbe:
+            httpGet:
+              path: /api/ready
+              port: http
+            {{- toYaml .Values.probes.readiness | nindent 12 }}
+          volumeMounts:
+            - name: data
+              mountPath: /app/data
+            - name: tmp
+              mountPath: /tmp
+      volumes:
+        - name: data
+          {{- if .Values.persistence.enabled }}
+          persistentVolumeClaim:
+            claimName: {{ include "tic.fullname" . }}-data
+          {{- else }}
+          emptyDir: {}
+          {{- end }}
+        - name: tmp
+          emptyDir:
+            medium: Memory
+            sizeLimit: 256Mi

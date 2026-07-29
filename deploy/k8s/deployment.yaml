@@ -1,0 +1,214 @@
+# deploy/k8s/deployment.yaml
+# TIC API — Kubernetes Deployment
+# Applies PodSecurity "restricted" profile equivalent without PSP (deprecated).
+# All security context fields required by restricted profile are explicitly set.
+#
+# Requirements before applying:
+#   1. Create namespace:  kubectl create namespace tic
+#   2. Create secret:     kubectl create secret generic tic-api-keys \
+#                           --from-literal=virustotal-key=<key> \
+#                           --from-literal=abuseipdb-key=<key> \
+#                           --from-literal=redaction-hmac-key=<key> \
+#                           --from-literal=audit-hmac-key=<key> \
+#                           -n tic
+#      (keys are optional individually; an absent audit-hmac-key with
+#       audit.sign=true makes the app fail closed at startup.)
+#   3. Apply NetworkPolicy (network-policy.yaml) first.
+#   4. Verify image signature: cosign verify ghcr.io/your-org/tic:latest
+#
+# CWE-250 (Execution with Unnecessary Privileges): all privilege vectors dropped.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: tic-api
+  namespace: tic
+  labels:
+    app.kubernetes.io/name: tic
+    app.kubernetes.io/component: api
+    app.kubernetes.io/version: "0.1.0"
+  annotations:
+    # Image signature verification annotation (Cosign policy controller)
+    policy.sigstore.dev/include: "true"
+spec:
+  replicas: 1
+  # TIC is stateful per-process (in-memory circuit breakers, metrics).
+  # Do not scale beyond 1 without first adding a shared Redis backend.
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: tic
+      app.kubernetes.io/component: api
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: tic
+        app.kubernetes.io/component: api
+      annotations:
+        # Seccomp profile (RuntimeDefault or custom profile).
+        seccomp.security.alpha.kubernetes.io/pod: "runtime/default"
+        # Prometheus scrape annotation.
+        prometheus.io/scrape: "true"
+        prometheus.io/path: "/api/metrics"
+        prometheus.io/port: "8000"
+    spec:
+      # Non-root enforcement.
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1001
+        runAsGroup: 1001
+        fsGroup: 1001
+        # AppArmor (if node supports it).
+        # seccompProfile is set per-container below (more specific).
+        seccompProfile:
+          type: RuntimeDefault
+
+      # No service account token auto-mounting (local tool; no K8s API access).
+      automountServiceAccountToken: false
+      serviceAccountName: tic-api  # See serviceaccount.yaml
+
+      containers:
+        - name: tic-api
+          image: ghcr.io/your-org/tic:latest
+          imagePullPolicy: Always
+
+          # The image binds 127.0.0.1 by default (local-first). Inside the
+          # cluster it must bind all interfaces so the kubelet probes and the
+          # Service can reach it; the NetworkPolicy + non-root + read-only root
+          # filesystem are the boundary here.
+          args: ["--host", "0.0.0.0", "--port", "8000"]
+
+          ports:
+            - name: http
+              containerPort: 8000
+              protocol: TCP
+
+          # ── Security context (PodSecurity restricted) ─────────────────────
+          securityContext:
+            runAsNonRoot: true
+            runAsUser: 1001
+            runAsGroup: 1001
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop:
+                - ALL
+              # No capabilities added — TIC requires none.
+            seccompProfile:
+              type: RuntimeDefault
+
+          # ── Resource limits ───────────────────────────────────────────────
+          resources:
+            requests:
+              cpu: "250m"
+              memory: "256Mi"
+            limits:
+              cpu: "1000m"
+              memory: "512Mi"
+
+          # ── Probes ────────────────────────────────────────────────────────
+          startupProbe:
+            httpGet:
+              path: /api/health
+              port: 8000
+            initialDelaySeconds: 5
+            periodSeconds: 3
+            failureThreshold: 10  # Allow 30s for startup.
+
+          livenessProbe:
+            httpGet:
+              path: /api/health
+              port: 8000
+            initialDelaySeconds: 10
+            periodSeconds: 30
+            timeoutSeconds: 5
+            failureThreshold: 3
+
+          readinessProbe:
+            httpGet:
+              path: /api/ready
+              port: 8000
+            initialDelaySeconds: 10
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 3
+
+          # ── Environment ───────────────────────────────────────────────────
+          env:
+            # Read secrets from injected env vars: the OS keyring is unusable
+            # under readOnlyRootFilesystem with no D-Bus session.
+            - name: TIC_SECRET_BACKEND
+              value: env
+            - name: TIC_PATHS__WORKING_DIR
+              value: /app/data
+            - name: TIC_PATHS__CACHE_DIR
+              value: /app/data/cache
+            - name: TIC_PATHS__AUDIT_LOG_PATH
+              value: /app/data/audit_chain.jsonl
+            # Secrets from the Secret object, named by the EnvSecretStore
+            # convention TIC_SECRET__{SERVICE}__{USER}. All four secret types
+            # must be served (providers + redaction-HMAC + Part-2 audit-HMAC),
+            # else prod audit signing (sign=true) fails closed and halts.
+            # Each is optional: an absent provider key disables that provider.
+            - name: TIC_SECRET__TIC_VIRUSTOTAL__DEFAULT
+              valueFrom:
+                secretKeyRef:
+                  name: tic-api-keys
+                  key: virustotal-key
+                  optional: true
+            - name: TIC_SECRET__TIC_ABUSEIPDB__DEFAULT
+              valueFrom:
+                secretKeyRef:
+                  name: tic-api-keys
+                  key: abuseipdb-key
+                  optional: true
+            - name: TIC_SECRET__TIC_REDACTION_HMAC__DEFAULT
+              valueFrom:
+                secretKeyRef:
+                  name: tic-api-keys
+                  key: redaction-hmac-key
+                  optional: true
+            - name: TIC_SECRET__TIC_AUDIT_HMAC__DEFAULT
+              valueFrom:
+                secretKeyRef:
+                  name: tic-api-keys
+                  key: audit-hmac-key
+                  optional: true
+            # OTel (optional).
+            - name: TIC_OTEL_ENDPOINT
+              valueFrom:
+                configMapKeyRef:
+                  name: tic-config
+                  key: otel_endpoint
+                  optional: true
+
+          # ── Volume mounts ─────────────────────────────────────────────────
+          volumeMounts:
+            # Persistent data (cache + audit log). Read-write.
+            - name: tic-data
+              mountPath: /app/data
+            # tmpfs for upload staging (no disk persistence).
+            - name: tmp
+              mountPath: /tmp
+            # tmpfs for Python pycache.
+            - name: pycache
+              mountPath: /tmp/__pycache__
+
+      # ── Volumes ────────────────────────────────────────────────────────────
+      volumes:
+        - name: tic-data
+          persistentVolumeClaim:
+            claimName: tic-data-pvc
+        - name: tmp
+          emptyDir:
+            medium: Memory
+            sizeLimit: 256Mi
+        - name: pycache
+          emptyDir:
+            medium: Memory
+            sizeLimit: 64Mi
+
+      # No privilege escalation at pod level either.
+      hostNetwork: false
+      hostPID: false
+      hostIPC: false

@@ -1,0 +1,28 @@
+# configs/scoring_profile.v1.yaml
+# IOC scoring profili — tic.application.scoring.ScoringProfile şemasına birebir
+# uyar. Bu dosya `--scoring-profile` argümanıyla (settings.scoring_profile_path)
+# yüklenebilir. Model `extra="forbid"` kullanır: burada tanımlı olmayan hiçbir
+# alan sessizce yok sayılmaz, yükleme sırasında hata verir.
+#
+# Skorlama motoru (compute_score / severity_for_score) YALNIZCA aşağıdaki üç
+# alanı tüketir: version, weights, severity_thresholds. Ağırlıklar 0.0–1.0
+# aralığındadır ve gerçek toplamlarına göre normalize edilir.
+
+version: "1"
+
+# Skor bileşeni ağırlıkları (her biri 0.0 - 1.0).
+weights:
+  provider_reliability: 0.25  # enrichment provider sayısı (3+ = tam)
+  ioc_confidence: 0.25        # feed'deki IOC confidence (0..100)
+  match_count: 0.20           # log eşleşme sayısı (10+ = tam)
+  recency: 0.15               # eşleşme/enrichment zaman yakınlığı
+  reputation_vote: 0.15       # enrichment reputation ortalaması
+
+# Skor (0..100) → severity eşikleri. score >= threshold olan en yüksek
+# seviye seçilir (deterministik).
+severity_thresholds:
+  info: 0
+  low: 20
+  medium: 40
+  high: 70
+  critical: 90

@@ -1,0 +1,144 @@
+# deploy/helm/tic/values.yaml
+# Default values for TIC Helm chart.
+# Override with: helm install tic ./deploy/helm/tic -f my-values.yaml
+
+replicaCount: 1
+
+image:
+  repository: ghcr.io/your-org/tic
+  tag: "0.1.0"
+  pullPolicy: Always
+
+# Resource limits — sized for local/small deployment.
+resources:
+  requests:
+    cpu: "250m"
+    memory: "256Mi"
+  limits:
+    cpu: "1000m"
+    memory: "512Mi"
+
+# Probe configuration.
+probes:
+  liveness:
+    initialDelaySeconds: 10
+    periodSeconds: 30
+    timeoutSeconds: 5
+    failureThreshold: 3
+  readiness:
+    initialDelaySeconds: 10
+    periodSeconds: 10
+    timeoutSeconds: 5
+    failureThreshold: 3
+  startup:
+    initialDelaySeconds: 5
+    periodSeconds: 3
+    failureThreshold: 10
+
+# Persistence for cache + audit log.
+persistence:
+  enabled: true
+  storageClass: ""  # Use cluster default.
+  size: 10Gi
+  accessMode: ReadWriteOnce
+
+# API keys — reference a pre-created Secret.
+# Create with: kubectl create secret generic tic-api-keys \
+#   --from-literal=virustotal-key=<key> -n tic
+existingSecret: "tic-api-keys"
+
+# Secret backend: 'env' reads secrets from injected env vars (required in a
+# container -- the OS keyring is unusable under readOnlyRootFilesystem with no
+# D-Bus). Use 'keyring' only for non-container/local installs.
+secretBackend: "env"
+
+# Keys within `existingSecret` holding each secret. They are surfaced to the
+# app under the EnvSecretStore convention TIC_SECRET__{SERVICE}__{USER}. The
+# Part-2 audit HMAC (auditHmac) MUST be present when audit.sign=true, else the
+# app fails closed at startup.
+secretKeys:
+  virustotal: virustotal-key
+  abuseipdb: abuseipdb-key
+  redactionHmac: redaction-hmac-key
+  auditHmac: audit-hmac-key
+
+# API bind address inside the pod. The image defaults to loopback (127.0.0.1);
+# clusters must bind 0.0.0.0 so probes and the Service can reach the pod.
+bindHost: "0.0.0.0"
+bindPort: 8000
+
+# Optional OTel endpoint.
+otel:
+  enabled: false
+  endpoint: ""  # e.g. http://otel-collector:4317
+
+# Service configuration.
+service:
+  type: ClusterIP
+  port: 8000
+
+# Ingress (disabled by default — local tool; use port-forward).
+ingress:
+  enabled: false
+  className: ""
+  annotations: {}
+  hosts: []
+  tls: []
+
+# Security context (PodSecurity restricted).
+podSecurityContext:
+  runAsNonRoot: true
+  runAsUser: 1001
+  runAsGroup: 1001
+  fsGroup: 1001
+  seccompProfile:
+    type: RuntimeDefault
+
+securityContext:
+  allowPrivilegeEscalation: false
+  readOnlyRootFilesystem: true
+  capabilities:
+    drop:
+      - ALL
+  seccompProfile:
+    type: RuntimeDefault
+
+# NetworkPolicy. Egress is restrictive by default; rendered by
+# templates/networkpolicy.yaml.
+networkPolicy:
+  enabled: true
+  # Allow ingress from pods with this label.
+  ingressFromFrontend:
+    podSelector:
+      matchLabels:
+        app.kubernetes.io/component: frontend
+  egress:
+    # DNS resolution (CoreDNS namespace). REQUIRED: without it no provider
+    # hostname resolves and the SSRF guard cannot resolve either.
+    dnsNamespace: kube-system
+    # HTTPS (443) to provider APIs. Default: public internet with internal /
+    # link-local / metadata ranges excluded (defense-in-depth with the SSRF
+    # guard). To tighten, set allowedCIDRs to specific provider ranges AND
+    # clear excludedCIDRs (`except` entries must fall within their cidr).
+    httpsPort: 443
+    allowedCIDRs:
+      - 0.0.0.0/0
+    excludedCIDRs:
+      - 10.0.0.0/8
+      - 172.16.0.0/12
+      - 192.168.0.0/16
+      - 169.254.0.0/16
+      - 127.0.0.0/8
+    # Optional OTel collector egress.
+    otel:
+      enabled: false
+      namespace: monitoring
+      podLabel: otel-collector
+      port: 4317
+
+# Prometheus ServiceMonitor (if Prometheus Operator is installed).
+serviceMonitor:
+  enabled: false
+  interval: 30s
+  path: /api/metrics
+  namespace: monitoring

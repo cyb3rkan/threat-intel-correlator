@@ -1,0 +1,112 @@
+# .github/workflows/fuzz.yml
+# Property-based fuzz testing with Hypothesis.
+#
+# Strategy:
+#   - Runs on every push to main/develop (fast profile: 500 examples).
+#   - Runs on a weekly schedule (thorough profile: 5000 examples).
+#   - Database of failing examples is cached between runs (Hypothesis database).
+#   - Failures are uploaded as artifacts for corpus reproduction.
+#
+# Hypothesis settings:
+#   FAST    — CI per-commit: max_examples=500, deadline=1000ms
+#   THOROUGH — weekly schedule: max_examples=5000, no deadline
+#
+# Adding new fuzz targets:
+#   1. Add test to tests/fuzz/test_fuzz_*.py.
+#   2. Decorate with @given + appropriate strategy.
+#   3. Job picks it up automatically.
+
+name: Fuzz
+
+on:
+  push:
+    branches: ["main", "develop"]
+  schedule:
+    - cron: "0 3 * * 1"  # Weekly Monday 03:00 UTC — thorough run.
+  workflow_dispatch:
+    inputs:
+      profile:
+        description: "Hypothesis profile (fast|thorough)"
+        required: false
+        default: "fast"
+
+permissions:
+  contents: read
+
+jobs:
+  fuzz:
+    name: Fuzz (Hypothesis)
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683  # v4.2.2
+
+      - name: Set up Python
+        uses: actions/setup-python@0b93645e9fea7318ecaed2b359559ac225c90a2b  # v5.3.0
+        with:
+          python-version: "3.11"
+
+      - name: Install Poetry
+        uses: snok/install-poetry@76e04a911780d5b312d89783f7b1cd627778900a  # v1.4.1
+        with:
+          version: "1.8.3"
+          virtualenvs-create: true
+          virtualenvs-in-project: true
+
+      - name: Cache virtualenv
+        uses: actions/cache@5a3ec84eff668545956fd18022155c47e93e2684  # v4.2.3
+        with:
+          path: .venv
+          key: venv-${{ runner.os }}-3.11-${{ hashFiles('poetry.lock') }}
+
+      - name: Cache Hypothesis database (corpus persistence)
+        uses: actions/cache@5a3ec84eff668545956fd18022155c47e93e2684  # v4.2.3
+        with:
+          path: .hypothesis
+          key: hypothesis-${{ runner.os }}-${{ github.ref_name }}-${{ hashFiles('tests/fuzz/**') }}
+          restore-keys: |
+            hypothesis-${{ runner.os }}-${{ github.ref_name }}-
+            hypothesis-${{ runner.os }}-main-
+
+      - name: Install dependencies
+        run: poetry install --with dev --all-extras
+
+      - name: Set Hypothesis profile
+        id: profile
+        run: |
+          if [[ "${{ github.event_name }}" == "schedule" ]] || \
+             [[ "${{ github.event.inputs.profile }}" == "thorough" ]]; then
+            echo "HYPOTHESIS_PROFILE=thorough" >> "$GITHUB_ENV"
+            echo "MAX_EXAMPLES=5000" >> "$GITHUB_ENV"
+          else
+            echo "HYPOTHESIS_PROFILE=fast" >> "$GITHUB_ENV"
+            echo "MAX_EXAMPLES=500" >> "$GITHUB_ENV"
+          fi
+
+      - name: Run fuzz tests (normalization)
+        env:
+          HYPOTHESIS_MAX_EXAMPLES: ${{ env.MAX_EXAMPLES }}
+        run: |
+          poetry run pytest tests/fuzz/test_fuzz_normalization.py \
+            --no-cov \
+            --hypothesis-seed=0 \
+            -v \
+            --tb=short
+
+      - name: Run fuzz tests (parsers)
+        env:
+          HYPOTHESIS_MAX_EXAMPLES: ${{ env.MAX_EXAMPLES }}
+        run: |
+          poetry run pytest tests/fuzz/test_fuzz_parsers.py \
+            --no-cov \
+            --hypothesis-seed=0 \
+            -v \
+            --tb=short
+
+      - name: Upload Hypothesis failure artifacts
+        if: failure()
+        uses: actions/upload-artifact@65c4c4a1ddee5b72f698fdd19549f0f0fb45cf08  # v4.6.0
+        with:
+          name: hypothesis-failures
+          path: .hypothesis/
+          retention-days: 30

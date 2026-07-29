@@ -1,0 +1,53 @@
+# .dockerignore -- keep the build context (and image layers) minimal.
+# NOTE: pyproject.toml, poetry.lock, README.md and src/ are required by the
+# builder stage and are intentionally NOT excluded here.
+
+# VCS / CI
+.git
+.gitignore
+.gitattributes
+.github
+.dockerignore
+Dockerfile
+
+# Python caches / build artifacts
+__pycache__/
+*.py[cod]
+*.egg-info/
+.eggs/
+build/
+dist/
+.mypy_cache/
+.ruff_cache/
+.pytest_cache/
+.coverage
+coverage.xml
+htmlcov/
+.tox/
+
+# Virtual environments
+.venv/
+venv/
+env/
+
+# Local runtime data -- must never be baked into the image
+*.sqlite
+*.sqlite-*
+audit_chain.jsonl
+data/
+.tic/
+
+# Not needed at runtime
+tests/
+docs/
+deploy/
+
+# Frontend artifacts (if a v0/Next.js app lives alongside)
+.next/
+node_modules/
+
+# Editor / OS noise
+.idea/
+.vscode/
+.DS_Store
+*.swp

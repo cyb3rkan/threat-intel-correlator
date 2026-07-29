@@ -1,0 +1,37 @@
+# .pre-commit-config.yaml
+#
+# Lightweight, non-destructive hooks for local development. All hooks are
+# read-only checks (no autofix) so a commit is never silently rewritten.
+# Heavy gates (bandit, pip-audit, gitleaks) live in CI; this file only
+# enforces what the developer can fix in seconds.
+#
+# Install once with:
+#   poetry run pre-commit install
+#
+# Run all hooks against the whole tree:
+#   poetry run pre-commit run --all-files
+#
+# Bypassing hooks (--no-verify) is strongly discouraged — fix the warning
+# instead. The repository's security posture relies on these checks.
+
+repos:
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v4.6.0
+    hooks:
+      - id: trailing-whitespace
+      - id: end-of-file-fixer
+      - id: check-yaml
+      - id: check-toml
+      - id: check-merge-conflict
+      - id: check-added-large-files
+        args: ["--maxkb=512"]
+      - id: detect-private-key
+
+  # Ruff — read-only lint pass. Matches the version pinned in pyproject.
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.4.10
+    hooks:
+      - id: ruff
+        args: ["--no-fix"]
+      - id: ruff-format
+        args: ["--check"]

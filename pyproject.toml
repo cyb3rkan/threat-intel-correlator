@@ -1,0 +1,127 @@
+# pyproject.toml
+[tool.poetry]
+name = "threat-intel-correlator"
+version = "0.1.0"
+description = "Defensive threat intel correlation CLI"
+authors = ["TIC Maintainers <security@example.com>"]
+readme = "README.md"
+license = "Apache-2.0"
+packages = [{ include = "tic", from = "src" }]
+
+[tool.poetry.dependencies]
+python = "^3.11"
+pydantic = "^2.7"
+pydantic-settings = ">=2.14.2"  # CVE fix GHSA-4xgf-cpjx-pc3j
+typer = ">=0.15"
+rich = "^13.7"
+structlog = "^24.1"
+httpx = { extras = ["http2"], version = "^0.27" }
+keyring = "^25.2"
+pyahocorasick = "^2.1"
+defusedxml = "^0.7.1"
+idna = ">=3.15"
+python-dateutil = "^2.9"
+tenacity = "^8.3"
+stix2-patterns = "^2.0.0"
+fastapi = "^0.136.1"
+uvicorn = { version = "^0.30", optional = true }
+python-multipart = ">=0.0.31"  # CVE fix PYSEC-2026-3036/3037/3040
+urllib3 = ">=2.7.0"
+starlette = ">=1.3.1"  # CVE fix PYSEC-2026-161/248/249/2280/2281
+# Transitive floors raised only to pull CVE-fixed versions (click via uvicorn,
+# msgpack via cachecontrol/keyring). Not first-party imports.
+click = ">=8.3.3"  # CVE fix PYSEC-2026-2132
+msgpack = ">=1.2.1"  # CVE fix GHSA-6v7p-g79w-8964
+cryptography = ">=48.0.1"  # CVE fix GHSA-537c-gmf6-5ccf (transitive via keyring)
+
+[tool.poetry.extras]
+api = ["fastapi", "uvicorn", "python-multipart"]
+
+[tool.poetry.group.dev.dependencies]
+pytest = ">=9.0.3"
+pytest-asyncio = ">=1.3.0"
+pytest-cov = "^5.0"
+hypothesis = "^6.100"
+respx = "^0.21"
+ruff = "^0.4"
+mypy = "^1.10"
+types-pyyaml = "^6.0"  # yaml stubs for mypy --strict (was transitively pulled by the removed streamlit chain)
+bandit = "^1.7"
+pip-audit = "^2.7"
+setuptools = ">=83.0.0"  # CVE fix PYSEC-2026-3447 (build-env transitive)
+
+[tool.poetry.scripts]
+tic = "tic.cli.main:app"
+
+[build-system]
+requires = ["poetry-core>=1.8"]
+build-backend = "poetry.core.masonry.api"
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+src = ["src", "tests"]
+
+[tool.ruff.lint]
+select = ["E","F","W","I","B","UP","S","A","C4","PT","RET","SIM","TCH","PL"]
+ignore = [
+    "S101",     # assert: used deliberately in tests and a few invariant guards
+    # TCH0xx (move import into a TYPE_CHECKING block) is unsafe here: pydantic,
+    # FastAPI, and typer resolve annotations at runtime, so hoisting the imports
+    # would break model/route/param construction. Ruff itself marks these fixes
+    # unsafe. Keeping the imports at runtime is correct for this stack.
+    "TCH001", "TCH002", "TCH003",
+    # Complexity thresholds are advisory. The wiring, parser, and scoring paths
+    # are intentionally wide/branchy (explicit provider assembly, exhaustive
+    # format handling); splitting them would obscure, not clarify.
+    "PLR0911", "PLR0912", "PLR0913", "PLR0915",
+    # Magic values are HTTP status codes (401/403/429) and byte-size caps that
+    # read more clearly inline than behind one-off named constants.
+    "PLR2004",
+    # try/except/pass and its contextlib.suppress equivalent are used as
+    # deliberate fail-closed / best-effort cleanup paths that must not raise.
+    # bandit (B110) already vets these and reports clean.
+    "S110", "SIM105",
+    # B008 flags FastAPI's File(...)/Form(...) dependency-injection idiom, which
+    # is the framework-sanctioned way to declare upload params. Not a real bug.
+    "B008",
+]
+
+[tool.ruff.lint.per-file-ignores]
+# Tests may use asserts, hardcoded fake secrets, magic values, and a looser
+# import/style posture than shipping code.
+"tests/**/*" = [
+    "S101", "S105", "S106", "S311", "PLR2004",
+    "PT006", "PT011", "PT018", "PT023",
+    "SIM117", "RET504", "C416",
+]
+# The SSRF corpus intentionally includes a 0.0.0.0 bind target as an attack
+# vector under test; it is data, not a real listener.
+"tests/security/test_ssrf_corpus.py" = ["S104"]
+# The prompt-injection corpus embeds raw control characters on purpose to prove
+# the redactor/validator neutralizes obfuscated payloads.
+"tests/security/test_prompt_injection_corpus.py" = ["PLE2502"]
+
+[tool.mypy]
+python_version = "3.11"
+strict = true
+warn_unreachable = true
+disallow_any_generics = true
+disallow_untyped_defs = true
+no_implicit_optional = true
+
+[[tool.mypy.overrides]]
+# opentelemetry is an optional instrumentation dependency; redis is the optional
+# state backend. Neither ships stubs we depend on; ignore missing imports rather
+# than vendor stubs for optional extras.
+module = ["opentelemetry.*", "redis", "redis.*"]
+ignore_missing_imports = true
+
+[tool.pytest.ini_options]
+addopts = "-ra --strict-markers --strict-config --cov=tic --cov-report=term-missing --cov-fail-under=85"
+testpaths = ["tests"]
+asyncio_mode = "auto"
+
+[tool.bandit]
+exclude_dirs = ["tests"]
+skips = ["B101"]

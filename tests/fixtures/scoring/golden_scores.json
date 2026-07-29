@@ -1,0 +1,26 @@
+{
+  "empty": {
+    "score": 8,
+    "severity": "info"
+  },
+  "low_confidence_no_enrich": {
+    "score": 15,
+    "severity": "info"
+  },
+  "max_everything": {
+    "score": 100,
+    "severity": "critical"
+  },
+  "no_reputation": {
+    "score": 51,
+    "severity": "medium"
+  },
+  "one_provider_mid": {
+    "score": 45,
+    "severity": "medium"
+  },
+  "three_providers_high_rep": {
+    "score": 80,
+    "severity": "high"
+  }
+}
