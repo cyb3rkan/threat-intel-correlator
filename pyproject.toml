@@ -32,7 +32,7 @@ starlette = ">=1.3.1"  # CVE fix PYSEC-2026-161/248/249/2280/2281
 # msgpack via cachecontrol/keyring). Not first-party imports.
 click = ">=8.3.3"  # CVE fix PYSEC-2026-2132
 msgpack = ">=1.2.1"  # CVE fix GHSA-6v7p-g79w-8964
-cryptography = ">=50.0.0"  # CVE fix GHSA-537c-gmf6-5ccf (transitive via keyring)
+cryptography = ">=48.0.1"  # CVE fix GHSA-537c-gmf6-5ccf (transitive via keyring)
 
 [tool.poetry.extras]
 api = ["fastapi", "uvicorn", "python-multipart"]
