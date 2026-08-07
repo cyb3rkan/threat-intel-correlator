@@ -23,6 +23,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from starlette.middleware.base import BaseHTTPMiddleware
 
+from tic.api import _demo
 from tic.api._provider_status import build_provider_status
 from tic.api.health import router as health_router
 from tic.api.rate_limit import RateLimitMiddleware
@@ -74,6 +75,8 @@ _ALLOWED_ORIGINS = (
 _FEED_FORMATS = {"csv", "ndjson", "misp-json", "stix"}
 _OUTPUT_MODES = {"analyst", "summary", "hash"}
 _FAIL_ON = {"info", "low", "medium", "high", "critical"}
+# Demo mode never offers `hash`: it needs the redaction HMAC key from the keyring.
+_DEMO_OUTPUT_MODES = {"analyst", "summary"}
 
 # Fallback upload ceiling at the HTTP layer, used only if settings cannot be
 # loaded. The effective limit is settings.parser_limits.max_file_size_bytes so
@@ -103,7 +106,9 @@ app.add_middleware(_CorrelationIdMiddleware)
 app.add_middleware(RateLimitMiddleware)
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=list(_ALLOWED_ORIGINS),
+    # Loopback origins always; the hosted demo frontend only when
+    # TIC_DEMO_MODE is on (see tic.api._demo.demo_origins).
+    allow_origins=list(_ALLOWED_ORIGINS) + _demo.demo_origins(),
     allow_credentials=False,
     allow_methods=["GET", "POST", "OPTIONS"],
     allow_headers=["Content-Type"],
@@ -258,6 +263,13 @@ async def sweep(
     provider responses, EnrichmentResult.truncated_raw, and any secret are
     never returned.
     """
+    # The public demo instance accepts no caller-supplied files at all.
+    if _demo.DEMO_MODE:
+        raise HTTPException(
+            status_code=403,
+            detail="File upload is disabled in demo mode. Use POST /api/demo-sweep.",
+        )
+
     # Defense-in-depth: re-validate even though FastAPI's Literal already does.
     feed_format = _validate_choice(feed_format, _FEED_FORMATS, "feed_format")  # type: ignore[assignment]
     output_mode = _validate_choice(output_mode, _OUTPUT_MODES, "output_mode")  # type: ignore[assignment]
@@ -351,3 +363,76 @@ async def sweep(
     finally:
         if upload_dir is not None:
             adapter.cleanup_upload_dir(upload_dir)
+
+
+if _demo.DEMO_MODE:
+
+    @app.post("/api/demo-sweep")
+    async def demo_sweep(
+        output_mode: Literal["analyst", "summary"] = Form("analyst"),
+        fail_on: Literal["info", "low", "medium", "high", "critical"] = Form("high"),
+    ) -> JSONResponse:
+        """Run the real pipeline over the bundled sample feed + event set.
+
+        Only registered when TIC_DEMO_MODE is on. Takes no file input, so the
+        public instance never stages caller-supplied data. Correlation,
+        scoring and public-DTO masking are the same code paths /api/sweep
+        uses; only the input is fixed. `hash` output mode is not offered
+        because it needs the redaction HMAC key from the keyring.
+        """
+        output_mode = _validate_choice(output_mode, _DEMO_OUTPUT_MODES, "output_mode")  # type: ignore[assignment]
+        fail_on = _validate_choice(fail_on, _FAIL_ON, "fail_on")  # type: ignore[assignment]
+
+        try:
+            settings = adapter.get_settings()
+        except Exception:  # noqa: BLE001
+            _log.warning("api_settings_load_failed")
+            raise HTTPException(
+                status_code=500, detail="Settings could not be loaded."
+            ) from None
+
+        working_dir = settings.paths.working_dir
+        upload_dir = None
+        try:
+            upload_dir = adapter.make_upload_dir(working_dir)
+            feed_path, log_path = _demo.stage_demo_inputs(
+                upload_dir=upload_dir, working_dir=working_dir
+            )
+
+            req = adapter.SweepRequest(
+                feed_path=feed_path,
+                feed_format="csv",
+                log_path=log_path,
+                output_mode=output_mode,
+                fail_on=fail_on,
+                with_ai=False,
+            )
+
+            try:
+                result = await adapter.run_sweep_async(req, settings)
+            except RuntimeError as e:
+                raise HTTPException(status_code=400, detail=str(e)) from None
+
+            return JSONResponse(
+                content={
+                    "findings": _public_findings_payload(result, output_mode),
+                    "finding_count": len(result.findings),
+                    "above_threshold": result.above_threshold,
+                    "exit_code": result.exit_code,
+                    "partial_scan": result.partial_scan,
+                    "ai_attempted": result.ai_attempted,
+                    "ai_active": result.ai_active,
+                    "output_mode": output_mode,
+                    "demo": True,
+                }
+            )
+        except HTTPException:
+            raise
+        except Exception as e:  # noqa: BLE001 — last-resort safety net
+            _log.warning("api_unhandled_error", type=type(e).__name__)
+            raise HTTPException(
+                status_code=500, detail="An unexpected error occurred during the sweep."
+            ) from None
+        finally:
+            if upload_dir is not None:
+                adapter.cleanup_upload_dir(upload_dir)
