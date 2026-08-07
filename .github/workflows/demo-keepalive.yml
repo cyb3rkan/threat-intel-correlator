@@ -1,0 +1,22 @@
+name: Demo keepalive
+
+# Render'ın ücretsiz katmanı 15 dakika hareketsizlikten sonra servisi
+# uyutuyor; uyanması ~1 dakika sürüyor. Aylık 750 saatlik kotayı yakmamak
+# için 7/24 değil, ziyaret ihtimalinin yüksek olduğu saatlerde ping atıyoruz
+# (hafta içi 06:00-20:00 UTC ≈ 09:00-23:00 TR, ayda ~420 saat).
+on:
+  schedule:
+    - cron: "*/10 6-20 * * 1-5"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Ping demo API
+        run: |
+          curl -fsS --max-time 90 --retry 2 --retry-delay 30 \
+            https://threat-intel-correlator-0.onrender.com/api/ready
