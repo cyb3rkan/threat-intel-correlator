@@ -10,6 +10,9 @@ on:
     # Her gece 02:00 UTC — bağımlılık CVE taraması için
     - cron: "0 2 * * *"
 
+permissions:
+  contents: read
+
 jobs:
   bandit:
     name: Static security scan (bandit)
@@ -22,12 +25,18 @@ jobs:
         with:
           python-version: "3.11"
 
+      # Poetry 2.3.4 — poetry.lock is lock-version 2.1, which Poetry 1.8.x
+      # cannot read ("The lock file is not compatible with the current version
+      # of Poetry"). All workflows must stay on the same major.
       - name: Install Poetry
         uses: snok/install-poetry@76e04a911780d5b312d89783f7b1cd627778900a  # v1.4.1
         with:
-          version: "1.8.3"
+          version: "2.3.4"
           virtualenvs-create: true
           virtualenvs-in-project: true
+
+      - name: Verify lock file is in sync with pyproject.toml
+        run: poetry check --lock
 
       - name: Install dependencies
         run: poetry install --with dev
@@ -62,16 +71,23 @@ jobs:
       - name: Install Poetry
         uses: snok/install-poetry@76e04a911780d5b312d89783f7b1cd627778900a  # v1.4.1
         with:
-          version: "1.8.3"
+          version: "2.3.4"
           virtualenvs-create: true
           virtualenvs-in-project: true
 
+      - name: Verify lock file is in sync with pyproject.toml
+        run: poetry check --lock
+
+      # --all-extras so the CVE scan covers the `api` extra (fastapi, uvicorn,
+      # python-multipart) that ships with the package.
       - name: Install dependencies
-        run: poetry install --with dev
+        run: poetry install --with dev --all-extras
 
       - name: Upgrade pip and run pip-audit
         run: |
-          poetry run python -m pip install --upgrade "pip>=26.1.1"
+          # PYSEC-2026-196 is only fixed in pip 26.1.2 — a >=26.1.1 floor leaves
+          # this gate red.
+          poetry run python -m pip install --upgrade "pip>=26.1.2"
           # --skip-editable drops the first-party editable package (not on PyPI);
           # --strict omitted so that intentional skip is not treated as an error.
           # Third-party CVEs still fail this step (non-zero exit on findings).
@@ -91,12 +107,15 @@ jobs:
       - name: Install Poetry
         uses: snok/install-poetry@76e04a911780d5b312d89783f7b1cd627778900a  # v1.4.1
         with:
-          version: "1.8.3"
+          version: "2.3.4"
           virtualenvs-create: true
           virtualenvs-in-project: true
 
+      - name: Verify lock file is in sync with pyproject.toml
+        run: poetry check --lock
+
       - name: Install dependencies
-        run: poetry install --with dev
+        run: poetry install --with dev --all-extras
 
       - name: License deny-list (fail on copyleft / source-available)
         run: |
@@ -105,8 +124,3 @@ jobs:
           # source-available) license incompatible with the project's Apache-2.0
           # distribution. Tune the deny-list below after review.
           poetry run pip-licenses --with-authors --with-urls --format=markdown --fail-on="GPL;GNU General Public License (GPL);GNU General Public License v2 (GPLv2);GNU General Public License v3 (GPLv3);AGPL;GNU Affero General Public License v3 (AGPLv3);LGPL;GNU Lesser General Public License v2 (LGPLv2);GNU Lesser General Public License v3 (LGPLv3);SSPL;Server Side Public License (SSPL);Commons Clause;Business Source License"
-
-
-
-
-
