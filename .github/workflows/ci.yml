@@ -7,6 +7,13 @@ on:
   pull_request:
     branches: ["main", "develop"]
 
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   test:
     name: Test (Python ${{ matrix.python-version }})
@@ -39,11 +46,19 @@ jobs:
           restore-keys: |
             venv-${{ runner.os }}-${{ matrix.python-version }}-
 
-      - name: Ensure lock file compatibility
-        run: poetry lock
+      # Verify, do not regenerate. `poetry lock` here would silently re-resolve
+      # dependencies on every run, making the build non-reproducible and the
+      # cache key above meaningless. `poetry check --lock` exits 1 if
+      # poetry.lock is out of sync with pyproject.toml, which is the failure we
+      # actually want surfaced.
+      - name: Verify lock file is in sync with pyproject.toml
+        run: poetry check --lock
 
+      # --all-extras is required: fastapi / uvicorn / python-multipart live in
+      # the `api` extra, and tests/integration/test_api_*.py import them.
+      # Without it those modules fail at collection time.
       - name: Install dependencies
-        run: poetry install --with dev
+        run: poetry install --with dev --all-extras
 
       - name: Lint (ruff)
         run: poetry run ruff check src tests
@@ -75,11 +90,13 @@ jobs:
           virtualenvs-create: true
           virtualenvs-in-project: true
 
-      - name: Ensure lock file compatibility
-        run: poetry lock
+      - name: Verify lock file is in sync with pyproject.toml
+        run: poetry check --lock
 
+      # --all-extras so the audit covers the full shipped dependency surface,
+      # including the `api` extra.
       - name: Install dependencies
-        run: poetry install --with dev
+        run: poetry install --with dev --all-extras
 
       - name: pip-audit (must match security.yml gate)
         run: |
