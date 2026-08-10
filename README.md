@@ -266,8 +266,70 @@ helm template tic deploy/helm/tic
 helm install tic deploy/helm/tic -n tic --create-namespace
 ```
 
-Raw manifests (no Helm) live under `deploy/k8s/`. See `deploy/helm/tic/values.yaml`
-for the full set of tunables (persistence, ingress, ServiceMonitor, egress CIDRs).
+Raw manifests (no Helm) live under `deploy/k8s/` — the unparametrized mirror of
+the chart (namespace `tic`, fixed names, 10Gi claim). Apply the directory as a
+whole; `kubectl` orders by kind, so one command brings up the ServiceAccount,
+PVC, Service, NetworkPolicy, PDB and Deployment together:
+
+```bash
+kubectl create namespace tic
+kubectl create secret generic tic-api-keys -n tic --from-literal=...   # as above
+kubectl apply -f deploy/k8s/
+```
+
+Applying `deployment.yaml` alone leaves the pod `Pending`: it mounts the claim
+defined in `pvc.yaml` and is reached through `service.yaml`.
+
+See `deploy/helm/tic/values.yaml` for the full set of tunables (persistence,
+ingress, ServiceMonitor, egress CIDRs, upload staging).
+
+### Exposing the API — read before enabling Ingress
+
+**TIC ships no API authentication.** There is no bearer token, API key, or OAuth2
+check anywhere in `src/tic/api/main.py`. That suits the intended local-first use
+(localhost, or `kubectl port-forward`), but an Ingress publishes
+`POST /api/sweep` — file upload, enrichment-provider quota consumption, CPU and
+disk — to anything that can reach the host. The built-in rate limit bounds abuse;
+it does not authenticate.
+
+The chart therefore refuses to render with `ingress.enabled=true` until you
+acknowledge this:
+
+```yaml
+ingress:
+  enabled: true
+security:
+  acknowledgeNoAuth: true          # confirms an authenticating proxy is in front
+networkPolicy:
+  ingressFromIngressController:
+    enabled: true                  # else the NetworkPolicy drops the controller
+```
+
+Put an authenticating proxy (OIDC, mTLS, API key, or reverse-proxy auth) in
+front before setting `acknowledgeNoAuth`.
+
+Two further couplings are enforced at render time, because each one otherwise
+fails silently at runtime:
+
+| Enabling | Also requires | Otherwise |
+|---|---|---|
+| `serviceMonitor.enabled` | `networkPolicy.ingressFromPrometheus.enabled` | ServiceMonitor is created, every scrape times out |
+| `ingress.enabled` | `networkPolicy.ingressFromIngressController.enabled` | Ingress routes to a pod that drops the traffic |
+
+Point each rule's `namespaceSelector` at wherever Prometheus and your ingress
+controller actually run — the defaults assume `monitoring` and `ingress-nginx`.
+
+### Upload staging
+
+Uploaded feeds and logs are staged under `paths.uploadDir`
+(`TIC_PATHS__UPLOAD_DIR`), which the chart sets to `/tmp/tic-uploads` — a
+memory-backed `emptyDir`, not the PersistentVolume. TIC deletes each staging
+directory after the sweep, but a pod killed mid-sweep never runs that cleanup,
+and the data carries IPs, hostnames and usernames. Leave this off the PVC.
+
+`paths.tmpSizeLimit` must exceed `2 × parser_limits.max_file_size_bytes`: a sweep
+stages the feed and the log at once. Raise both together. Unset `uploadDir`
+locally and uploads fall back to `working_dir`, as before.
 
 ---
 
