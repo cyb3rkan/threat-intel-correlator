@@ -15,7 +15,6 @@ CSV-injection mitigation, public-DTO masking).
 
 from __future__ import annotations
 
-import re
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Literal
 
@@ -67,72 +66,10 @@ class _CorrelationIdMiddleware(BaseHTTPMiddleware):
         return response
 
 
-_DEFAULT_ALLOWED_ORIGINS = (
+_ALLOWED_ORIGINS = (
     "http://127.0.0.1:3000",
     "http://localhost:3000",
 )
-
-# Hostname [+ optional port] of a CORS origin: DNS labels or an IPv4 literal,
-# optionally ":<port>". Bracketed IPv6 literals are covered by the alternation.
-# Deliberately excludes "*" -- see the rejection note in _resolve_allowed_origins.
-_VALID_ORIGIN_HOST = re.compile(
-    r"(?:[A-Za-z0-9](?:[A-Za-z0-9-]{0,61}[A-Za-z0-9])?"
-    r"(?:\.[A-Za-z0-9](?:[A-Za-z0-9-]{0,61}[A-Za-z0-9])?)*"
-    r"|\[[0-9A-Fa-f:.]+\])"
-    r"(?::\d{1,5})?"
-)
-
-
-def _resolve_allowed_origins() -> tuple[str, ...]:
-    """CORS origins: the loopback defaults plus any in ``TIC_API_CORS_ORIGINS``.
-
-    A hosted frontend (Vercel, Netlify, a reverse proxy) is served from an
-    origin the loopback defaults do not cover, and CORSMiddleware reflects only
-    exact matches -- so without this the browser blocks every call from the
-    deployed UI.
-
-    Comma-separated absolute origins, scheme + host [+ port] only::
-
-        TIC_API_CORS_ORIGINS=https://tic.example.com,https://tic-preview.vercel.app
-
-    Entries are validated and normalized (lowercased, trailing slash and any
-    path stripped). Malformed entries are dropped with a warning rather than
-    failing startup: a typo must not turn into a wildcard, and the loopback
-    defaults always remain. ``*`` is never accepted -- with credentials
-    disabled it would still let any site read sweep output.
-    """
-    import os
-    from urllib.parse import urlsplit
-
-    raw = os.environ.get("TIC_API_CORS_ORIGINS", "").strip()
-    if not raw:
-        return _DEFAULT_ALLOWED_ORIGINS
-
-    resolved = list(_DEFAULT_ALLOWED_ORIGINS)
-    for entry in raw.split(","):
-        candidate = entry.strip().rstrip("/")
-        if not candidate:
-            continue
-        parts = urlsplit(candidate)
-        if parts.scheme not in ("http", "https") or not parts.netloc or parts.path:
-            _log.warning("cors_origin_rejected", reason="malformed")
-            continue
-        # urlsplit treats "*" as a perfectly good hostname, so "https://*.vercel.app"
-        # would survive the checks above and be registered verbatim. CORSMiddleware
-        # matches origins literally, so such an entry never matches anything -- the
-        # operator who wrote it would believe previews were allowed while every
-        # request is blocked. Reject it loudly instead. Patterns belong in
-        # allow_origin_regex, which this deliberately does not expose.
-        if not _VALID_ORIGIN_HOST.fullmatch(parts.netloc):
-            _log.warning("cors_origin_rejected", reason="invalid_host")
-            continue
-        origin = f"{parts.scheme}://{parts.netloc}".lower()
-        if origin not in resolved:
-            resolved.append(origin)
-    return tuple(resolved)
-
-
-_ALLOWED_ORIGINS = _resolve_allowed_origins()
 
 _FEED_FORMATS = {"csv", "ndjson", "misp-json", "stix"}
 _OUTPUT_MODES = {"analyst", "summary", "hash"}
