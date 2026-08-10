@@ -5,9 +5,18 @@
 const _DEFAULT_API_BASE = "http://127.0.0.1:8000";
 
 /**
- * Resolve API_BASE from NEXT_PUBLIC_API_BASE with a strict local-only guard.
- * Protects against misconfiguration that would send local sweep data to a
- * remote host (e.g. typo, shared .env, build cache from another project).
+ * Resolve API_BASE from NEXT_PUBLIC_API_BASE.
+ *
+ * Loopback backends are always allowed — that is the local-first default.
+ * A remote backend (the hosted demo) requires BOTH an https URL and an
+ * explicit NEXT_PUBLIC_ALLOW_REMOTE_API=true opt-in, so the original hazard
+ * this guard was written for still cannot happen by accident: a typo, a
+ * shared .env, or a stale build cache from another project sends local sweep
+ * data nowhere, because it fails the opt-in rather than the host check.
+ *
+ * Plain-http remote hosts stay rejected outright: uploads carry IPs,
+ * hostnames and usernames, and must never cross the network in the clear.
+ *
  * Falls back to 127.0.0.1:8000 with a console warning if rejected.
  */
 function _resolveApiBase(raw: string | undefined): string {
@@ -18,15 +27,28 @@ function _resolveApiBase(raw: string | undefined): string {
   } catch {
     return _DEFAULT_API_BASE;
   }
-  // Only allow plain http(s); only allow loopback hosts. The frontend is
-  // local-only by design and must not reach a remote backend.
   if (parsed.protocol !== "http:" && parsed.protocol !== "https:") {
     return _DEFAULT_API_BASE;
   }
   const host = parsed.hostname.toLowerCase();
   const isLoopback = host === "127.0.0.1" || host === "localhost" || host === "::1" || host === "[::1]";
   if (!isLoopback) {
-    return _DEFAULT_API_BASE;
+    const allowRemote = process.env.NEXT_PUBLIC_ALLOW_REMOTE_API === "true";
+    if (!allowRemote) {
+      console.warn(
+        `[tic] Ignoring remote NEXT_PUBLIC_API_BASE (${raw}): set ` +
+          `NEXT_PUBLIC_ALLOW_REMOTE_API=true to target a hosted backend. ` +
+          `Falling back to ${_DEFAULT_API_BASE}.`,
+      );
+      return _DEFAULT_API_BASE;
+    }
+    if (parsed.protocol !== "https:") {
+      console.warn(
+        `[tic] Ignoring plain-http remote NEXT_PUBLIC_API_BASE (${raw}): ` +
+          `a remote backend must use https. Falling back to ${_DEFAULT_API_BASE}.`,
+      );
+      return _DEFAULT_API_BASE;
+    }
   }
   // Strip trailing slash so route concatenation stays well-formed.
   return raw.replace(/\/+$/, "");
