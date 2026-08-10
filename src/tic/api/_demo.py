@@ -21,6 +21,7 @@ from __future__ import annotations
 
 import json
 import os
+import re
 from pathlib import Path
 from urllib.parse import urlsplit
 
@@ -31,6 +32,15 @@ from tic.ui import adapter
 # --------------------------------------------------------------------------
 
 _TRUTHY = {"1", "true", "yes", "on"}
+
+# Hostname [+ optional port] of a CORS origin: DNS labels or a bracketed IPv6
+# literal, optionally ":<port>". Deliberately excludes "*" -- see demo_origins.
+_VALID_ORIGIN_HOST = re.compile(
+    r"(?:[A-Za-z0-9](?:[A-Za-z0-9-]{0,61}[A-Za-z0-9])?"
+    r"(?:\.[A-Za-z0-9](?:[A-Za-z0-9-]{0,61}[A-Za-z0-9])?)*"
+    r"|\[[0-9A-Fa-f:.]+\])"
+    r"(?::\d{1,5})?"
+)
 
 
 def _env_flag(name: str) -> bool:
@@ -47,6 +57,13 @@ def demo_origins() -> list[str]:
     demo mode is off, so a stray env var cannot widen CORS on a local run.
     Each entry must be a scheme+host origin with no path — anything else is
     dropped rather than trusted.
+
+    Wildcards are rejected rather than passed through. ``urlsplit`` accepts
+    ``*`` as a hostname, so ``https://*.vercel.app`` would otherwise be
+    registered verbatim; CORSMiddleware matches origins literally, so it would
+    match nothing while whoever wrote it believed preview deployments were
+    allowed. Patterns belong in ``allow_origin_regex``, which this
+    deliberately does not expose.
     """
     if not DEMO_MODE:
         return []
@@ -60,6 +77,8 @@ def demo_origins() -> list[str]:
         if parts.scheme not in ("http", "https") or not parts.netloc:
             continue
         if parts.path or parts.query or parts.fragment:
+            continue
+        if not _VALID_ORIGIN_HOST.fullmatch(parts.netloc):
             continue
         out.append(f"{parts.scheme}://{parts.netloc}")
     return out

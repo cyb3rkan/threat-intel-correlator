@@ -390,3 +390,15 @@ files anywhere writable and point `--feed` / `--logs` at them.
 
 For deeper context see `docs/THREAT_MODEL.md`, `docs/SECURE_CODING.md`, and
 `SECURITY.md`.
+
+### Public demo
+
+`TIC_DEMO_MODE=1` makes an instance safe to expose: it refuses
+`POST /api/sweep` outright — so the unauthenticated upload endpoint has no
+abuse surface — and serves `POST /api/demo-sweep`, which runs the real
+pipeline over a bundled sample set. Configure no provider API keys there and
+there is no quota to burn and no key to leak.
+
+`docs/DEMO_DEPLOYMENT.md` walks through the hosted setup (backend on Render
+via `deploy/demo/Dockerfile`, frontend on Vercel) and the checks that confirm
+it is locked down.

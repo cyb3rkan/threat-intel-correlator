@@ -49,10 +49,16 @@ ENV PATH="/opt/venv/bin:$PATH" \
     TIC_PATHS__WORKING_DIR=/app/data \
     TIC_PATHS__CACHE_DIR=/app/data/cache \
     TIC_PATHS__AUDIT_LOG_PATH=/app/data/audit_chain.jsonl \
+    TIC_PATHS__UPLOAD_DIR=/tmp/tic-uploads \
     TIC_SECRET_BACKEND=env \
     TIC_DEMO_MODE=1
 
-RUN mkdir -p /app/data/cache && chown -R 1001:1001 /app
+# Sweep inputs stage under UPLOAD_DIR, deliberately outside /app/data: the
+# staging dir is removed after each sweep, but a container killed mid-sweep
+# never runs that cleanup, and /app/data is the path a platform mounts a disk
+# on. /tmp is ephemeral, so nothing survives a restart there.
+RUN mkdir -p /app/data/cache /tmp/tic-uploads \
+ && chown -R 1001:1001 /app /tmp/tic-uploads
 
 WORKDIR /app
 USER 1001
