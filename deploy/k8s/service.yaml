@@ -1,0 +1,35 @@
+# deploy/k8s/service.yaml
+# ClusterIP Service fronting the API pod.
+#
+# spec.selector MUST stay in sync with the pod template labels in
+# deployment.yaml (app.kubernetes.io/name + app.kubernetes.io/component). A
+# mismatch produces a Service with no endpoints -- valid YAML, silently
+# unreachable.
+#
+# metadata.labels intentionally carries the same two selector labels so that a
+# ServiceMonitor (or any other label selector) can find this Service. The Helm
+# chart makes the same guarantee via the tic.labels/tic.selectorLabels helpers.
+#
+# ClusterIP only: TIC ships no API authentication, so this is not exposed
+# outside the cluster. Reach it with:
+#   kubectl port-forward -n tic svc/tic-api 8000:8000
+apiVersion: v1
+kind: Service
+metadata:
+  name: tic-api
+  namespace: tic
+  labels:
+    app.kubernetes.io/name: tic
+    app.kubernetes.io/component: api
+    app.kubernetes.io/version: "0.1.0"
+spec:
+  type: ClusterIP
+  selector:
+    app.kubernetes.io/name: tic
+    app.kubernetes.io/component: api
+  ports:
+    - name: http
+      protocol: TCP
+      port: 8000
+      # Named port from deployment.yaml (ports[].name: http).
+      targetPort: http

@@ -13,8 +13,17 @@
 #                           -n tic
 #      (keys are optional individually; an absent audit-hmac-key with
 #       audit.sign=true makes the app fail closed at startup.)
-#   3. Apply NetworkPolicy (network-policy.yaml) first.
-#   4. Verify image signature: cosign verify ghcr.io/your-org/tic:latest
+#   3. Verify image signature: cosign verify ghcr.io/your-org/tic:latest
+#
+# Then apply the whole directory -- kubectl orders by kind, so a single
+#   kubectl apply -f deploy/k8s/
+# creates ServiceAccount, PVC, Service, NetworkPolicy, PDB and this Deployment
+# correctly. Applying deployment.yaml alone leaves the pod Pending: it mounts
+# the claim defined in pvc.yaml and is reached through service.yaml.
+#
+# This directory is the unparametrized mirror of the Helm chart under
+# deploy/helm/tic. Namespace (tic), names and the 10Gi claim are hardcoded
+# here; use the chart if you need to vary any of them.
 #
 # CWE-250 (Execution with Unnecessary Privileges): all privilege vectors dropped.
 apiVersion: apps/v1
@@ -145,6 +154,12 @@ spec:
               value: /app/data/cache
             - name: TIC_PATHS__AUDIT_LOG_PATH
               value: /app/data/audit_chain.jsonl
+            # Stage uploads on the tmpfs below, not on the PVC. /app/data
+            # outlives the pod, so a SIGKILL between staging and cleanup would
+            # strand uploaded feeds and logs -- IPs, hostnames, usernames --
+            # on durable storage. Must sit inside a mounted tmpfs path.
+            - name: TIC_PATHS__UPLOAD_DIR
+              value: /tmp/tic-uploads
             # Secrets from the Secret object, named by the EnvSecretStore
             # convention TIC_SECRET__{SERVICE}__{USER}. All four secret types
             # must be served (providers + redaction-HMAC + Part-2 audit-HMAC),

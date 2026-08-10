@@ -16,13 +16,43 @@ spec:
   policyTypes:
     - Ingress
     - Egress
+  # Ingress rules. Each list entry is OR'ed; within one entry a
+  # namespaceSelector and a podSelector on the SAME item are AND'ed (note the
+  # missing "-" before podSelector in the cross-namespace rules -- that is what
+  # scopes the pod match to the selected namespace rather than matching pods
+  # anywhere). A rule carrying only a podSelector is implicitly same-namespace.
   ingress:
+    {{- if .Values.networkPolicy.ingressFromFrontend.enabled }}
+    # Frontend pod, same namespace.
     - from:
         - podSelector:
             {{- toYaml .Values.networkPolicy.ingressFromFrontend.podSelector | nindent 12 }}
       ports:
         - protocol: TCP
           port: {{ .Values.service.port }}
+    {{- end }}
+    {{- if .Values.networkPolicy.ingressFromIngressController.enabled }}
+    # Ingress controller, typically in its own namespace.
+    - from:
+        - namespaceSelector:
+            {{- toYaml .Values.networkPolicy.ingressFromIngressController.namespaceSelector | nindent 12 }}
+          podSelector:
+            {{- toYaml .Values.networkPolicy.ingressFromIngressController.podSelector | nindent 12 }}
+      ports:
+        - protocol: TCP
+          port: {{ .Values.service.port }}
+    {{- end }}
+    {{- if .Values.networkPolicy.ingressFromPrometheus.enabled }}
+    # Prometheus scraper, typically in the monitoring namespace.
+    - from:
+        - namespaceSelector:
+            {{- toYaml .Values.networkPolicy.ingressFromPrometheus.namespaceSelector | nindent 12 }}
+          podSelector:
+            {{- toYaml .Values.networkPolicy.ingressFromPrometheus.podSelector | nindent 12 }}
+      ports:
+        - protocol: TCP
+          port: {{ .Values.service.port }}
+    {{- end }}
   egress:
     # DNS (CoreDNS). REQUIRED: without it no provider hostname resolves and the
     # SSRF guard cannot resolve either.

@@ -1,0 +1,27 @@
+# deploy/k8s/pvc.yaml
+# PersistentVolumeClaim backing /app/data (SQLite cache + hash-chain audit log).
+#
+# deployment.yaml references this claim by name (volumes[].persistentVolumeClaim
+# .claimName: tic-data-pvc). Without it the pod stays Pending indefinitely with
+# "persistentvolumeclaim \"tic-data-pvc\" not found".
+#
+# ReadWriteOnce + Recreate strategy: TIC is single-writer by design (in-process
+# circuit breakers and metrics), so the Deployment never runs two pods at once.
+# Do not switch to ReadWriteMany expecting horizontal scale -- see the replica
+# note in deployment.yaml.
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: tic-data-pvc
+  namespace: tic
+  labels:
+    app.kubernetes.io/name: tic
+    app.kubernetes.io/component: api
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 10Gi
+  # Uses the cluster's default StorageClass. Uncomment to pin one explicitly:
+  # storageClassName: "standard"

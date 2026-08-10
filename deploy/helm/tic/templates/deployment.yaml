@@ -1,3 +1,4 @@
+{{- include "tic.guards" . }}
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -53,6 +54,13 @@ spec:
               value: /app/data/cache
             - name: TIC_PATHS__AUDIT_LOG_PATH
               value: /app/data/audit_chain.jsonl
+            {{- with .Values.paths.uploadDir }}
+            # Stage uploads off the PersistentVolume. /app/data survives the
+            # pod, so a SIGKILL between staging and cleanup would strand
+            # uploaded feeds and logs (IPs, hostnames, usernames) there.
+            - name: TIC_PATHS__UPLOAD_DIR
+              value: {{ . | quote }}
+            {{- end }}
             # EnvSecretStore convention TIC_SECRET__{SERVICE}__{USER}. All four
             # secret types served (providers + redaction-HMAC + Part-2 audit
             # HMAC); the audit HMAC is required when audit.sign=true.
@@ -114,7 +122,8 @@ spec:
           {{- else }}
           emptyDir: {}
           {{- end }}
+        # tmpfs: scratch space and, via paths.uploadDir, upload staging.
         - name: tmp
           emptyDir:
             medium: Memory
-            sizeLimit: 256Mi
+            sizeLimit: {{ .Values.paths.tmpSizeLimit }}

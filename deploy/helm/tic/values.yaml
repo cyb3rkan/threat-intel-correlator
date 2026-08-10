@@ -42,6 +42,21 @@ persistence:
   size: 10Gi
   accessMode: ReadWriteOnce
 
+paths:
+  # Upload staging root (TIC_PATHS__UPLOAD_DIR). Set to a path on the tmpfs
+  # volume below so uploaded feeds/logs never reach the PersistentVolume: the
+  # app deletes them after each sweep, but a SIGKILL'd pod cannot run that
+  # cleanup, and the data carries IPs, hostnames and usernames.
+  # Empty string => uploads fall back to working_dir (i.e. the PVC).
+  uploadDir: "/tmp/tic-uploads"
+  # Size of the /tmp tmpfs. Memory-backed, so it counts against the pod's
+  # memory limit -- keep it well under resources.limits.memory.
+  #
+  # A sweep stages the feed AND the log concurrently, so this must exceed
+  # 2 x parser_limits.max_file_size_bytes or a large pair of uploads fills the
+  # volume and the write fails with ENOSPC. Raise both together.
+  tmpSizeLimit: 256Mi
+
 # API keys — reference a pre-created Secret.
 # Create with: kubectl create secret generic tic-api-keys \
 #   --from-literal=virustotal-key=<key> -n tic
@@ -78,12 +93,28 @@ service:
   port: 8000
 
 # Ingress (disabled by default — local tool; use port-forward).
+# Enabling this requires security.acknowledgeNoAuth=true AND
+# networkPolicy.ingressFromIngressController.enabled=true; the chart fails to
+# render otherwise. See the security block below.
 ingress:
   enabled: false
   className: ""
   annotations: {}
   hosts: []
   tls: []
+
+# Security acknowledgements.
+security:
+  # TIC ships NO API authentication -- there is no bearer/API-key/OAuth2
+  # dependency anywhere in src/tic/api/main.py. That is fine for the intended
+  # local-first use (localhost or `kubectl port-forward`), but an Ingress
+  # publishes POST /api/sweep -- file upload, provider quota consumption, CPU
+  # and disk -- to anything that can reach the host. The built-in rate limit
+  # bounds abuse; it does not authenticate.
+  #
+  # Put an authenticating proxy in front (OIDC, mTLS, API key, or reverse-proxy
+  # auth), then set this to true to confirm. Required for ingress.enabled=true.
+  acknowledgeNoAuth: false
 
 # Security context (PodSecurity restricted).
 podSecurityContext:
@@ -107,11 +138,40 @@ securityContext:
 # templates/networkpolicy.yaml.
 networkPolicy:
   enabled: true
-  # Allow ingress from pods with this label.
+  # Ingress sources. IMPORTANT: a rule with only a podSelector matches pods in
+  # THIS namespace only. Cross-namespace callers (an ingress controller, a
+  # Prometheus in `monitoring`) need their own rule with a namespaceSelector,
+  # otherwise their traffic is dropped and the symptom is silent -- the
+  # resources render fine, nothing reaches the pod.
+  #
+  # Allow ingress from the frontend pod (same namespace).
   ingressFromFrontend:
+    enabled: true
     podSelector:
       matchLabels:
         app.kubernetes.io/component: frontend
+  # Allow the ingress controller through. MUST be enabled when
+  # ingress.enabled=true, else the Ingress routes to a pod that drops the
+  # traffic. Point namespaceSelector at wherever your controller runs
+  # (ingress-nginx, traefik, kube-system, ...); an empty podSelector ({})
+  # means "any pod in that namespace".
+  ingressFromIngressController:
+    enabled: false
+    namespaceSelector:
+      matchLabels:
+        kubernetes.io/metadata.name: ingress-nginx
+    podSelector: {}
+  # Allow Prometheus to scrape /api/metrics. MUST be enabled when
+  # serviceMonitor.enabled=true, else the ServiceMonitor is created but every
+  # scrape times out.
+  ingressFromPrometheus:
+    enabled: false
+    namespaceSelector:
+      matchLabels:
+        kubernetes.io/metadata.name: monitoring
+    podSelector:
+      matchLabels:
+        app.kubernetes.io/name: prometheus
   egress:
     # DNS resolution (CoreDNS namespace). REQUIRED: without it no provider
     # hostname resolves and the SSRF guard cannot resolve either.
