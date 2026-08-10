@@ -19,7 +19,12 @@ import json
 import tempfile
 from pathlib import Path
 
+import pytest
 from fastapi.testclient import TestClient
+
+# Every test here drives the shared FastAPI singleton, so each needs a clean
+# rate-limit window; without it they fail as 429s depending on collection order.
+pytestmark = pytest.mark.usefixtures("fresh_app_middleware")
 
 # A small ceiling so "over limit" is a few KB, not hundreds of MB.
 _MAX_BYTES = 4096

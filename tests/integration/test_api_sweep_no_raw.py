@@ -16,7 +16,12 @@ import os
 import tempfile
 from pathlib import Path
 
+import pytest
 from fastapi.testclient import TestClient
+
+# Every test here drives the shared FastAPI singleton, so each needs a clean
+# rate-limit window; without it they fail as 429s depending on collection order.
+pytestmark = pytest.mark.usefixtures("fresh_app_middleware")
 
 
 def _make_env() -> dict[str, str]:

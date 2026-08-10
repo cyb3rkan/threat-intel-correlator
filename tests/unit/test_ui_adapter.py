@@ -42,7 +42,7 @@ def test_stage_upload_uuid_name_and_safe_extension(tmp_settings) -> None:
     target = adapter.stage_upload(
         b"value\n1.2.3.4\n",
         upload_dir=up,
-        working_dir=wd,
+        upload_root=wd,
         original_filename="../../etc/passwd.csv",
     )
     # Original name (and its traversal segments) is discarded.
@@ -57,7 +57,7 @@ def test_stage_upload_uuid_name_and_safe_extension(tmp_settings) -> None:
 def test_stage_upload_strips_unsafe_extension(tmp_settings) -> None:
     wd = tmp_settings.paths.working_dir
     up = adapter.make_upload_dir(wd)
-    target = adapter.stage_upload(b"x", upload_dir=up, working_dir=wd, original_filename="evil.exe")
+    target = adapter.stage_upload(b"x", upload_dir=up, upload_root=wd, original_filename="evil.exe")
     assert target.suffix == ""  # .exe is not on SAFE_EXTENSIONS
 
 
@@ -65,7 +65,7 @@ def test_stage_upload_rejects_dir_outside_working_dir(tmp_settings, tmp_path_fac
     wd = tmp_settings.paths.working_dir
     outside = tmp_path_factory.mktemp("outside")
     with pytest.raises(SecurityViolationError):
-        adapter.stage_upload(b"x", upload_dir=outside, working_dir=wd, original_filename="a.csv")
+        adapter.stage_upload(b"x", upload_dir=outside, upload_root=wd, original_filename="a.csv")
 
 
 def test_cleanup_upload_dir_removes_tree(tmp_settings) -> None:

@@ -195,12 +195,36 @@ class PathsConfig(BaseModel):
     cache_dir: Path
     audit_log_path: Path
 
+    # Staging root for UI/API uploads. When unset, uploads land under
+    # working_dir (the historical behaviour, and the right default for local
+    # use). Containers should point this at ephemeral storage: working_dir is
+    # a PersistentVolume there, so a pod killed between staging and cleanup
+    # would leave uploaded feeds and logs -- which carry IPs, hostnames and
+    # usernames -- on durable storage.
+    upload_dir: Path | None = None
+
     @field_validator("working_dir", "cache_dir", "audit_log_path")
     @classmethod
     def _must_be_absolute(cls, v: Path) -> Path:
         if not v.is_absolute():
             raise ValueError(f"path must be absolute: {v}")
         return v
+
+    @field_validator("upload_dir")
+    @classmethod
+    def _upload_dir_absolute(cls, v: Path | None) -> Path | None:
+        if v is not None and not v.is_absolute():
+            raise ValueError(f"path must be absolute: {v}")
+        return v
+
+    @property
+    def effective_upload_dir(self) -> Path:
+        """Root that upload staging is confined to.
+
+        This is the containment root the path guard enforces, not merely a
+        location hint -- staged files are validated against it.
+        """
+        return self.upload_dir if self.upload_dir is not None else self.working_dir
 
 
 class Settings(BaseSettings):

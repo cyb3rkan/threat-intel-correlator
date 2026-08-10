@@ -14,6 +14,7 @@ from __future__ import annotations
 from pathlib import Path
 from unittest.mock import patch
 
+import pytest
 from fastapi.testclient import TestClient
 
 from tic.infra.config import (
@@ -22,6 +23,10 @@ from tic.infra.config import (
     ProviderConfig,
     Settings,
 )
+
+# Every test here drives the shared FastAPI singleton, so each needs a clean
+# rate-limit window; without it they fail as 429s depending on collection order.
+pytestmark = pytest.mark.usefixtures("fresh_app_middleware")
 
 _FAKE_KEY = b"unit-test-key-not-a-real-secret-32"
 

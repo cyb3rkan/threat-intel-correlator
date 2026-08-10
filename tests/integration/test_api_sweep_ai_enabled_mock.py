@@ -27,6 +27,7 @@ import json
 import tempfile
 from pathlib import Path
 
+import pytest
 from fastapi.testclient import TestClient
 from tests.fixtures.fake_secret_store import PLACEHOLDER_HMAC_32B
 from tests.fixtures.mock_ai_provider import (
@@ -34,6 +35,10 @@ from tests.fixtures.mock_ai_provider import (
     MockAIProviderInvalidJson,
     MockAIProviderTimeout,
 )
+
+# Every test here drives the shared FastAPI singleton, so each needs a clean
+# rate-limit window; without it they fail as 429s depending on collection order.
+pytestmark = pytest.mark.usefixtures("fresh_app_middleware")
 
 _FEED = b"value,confidence,source,tags\n198.51.100.23,80,sample,doc;ipv4\n"
 _LOG = (

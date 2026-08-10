@@ -137,24 +137,31 @@ def _safe_extension(filename: str | None) -> str:
     return ""
 
 
-def make_upload_dir(working_dir: Path) -> Path:
-    """Create a per-session upload directory under working_dir.
+def make_upload_dir(upload_root: Path) -> Path:
+    """Create a per-session upload directory under `upload_root`.
 
-    Returns a resolved, root-confined Path. Caller is responsible for
-    eventual cleanup via cleanup_upload_dir.
+    `upload_root` is settings.paths.effective_upload_dir: working_dir by
+    default, or a separate ephemeral root when configured (containers point it
+    at tmpfs so uploads never touch the PersistentVolume). It is also the
+    containment root every staged path is checked against, so it must travel
+    with the upload_dir through the helpers below -- guarding a tmpfs path
+    against working_dir would reject every upload.
+
+    Returns a resolved, root-confined Path. Caller is responsible for eventual
+    cleanup via cleanup_upload_dir.
     """
-    base = working_dir / UI_UPLOAD_DIRNAME
+    base = upload_root / UI_UPLOAD_DIRNAME
     base.mkdir(parents=True, exist_ok=True)
     session_dir = base / uuid.uuid4().hex
     session_dir.mkdir(parents=True, exist_ok=False)
     # Belt and suspenders: confirm containment.
-    return safe_resolve_within(session_dir, allowed_root=working_dir)
+    return safe_resolve_within(session_dir, allowed_root=upload_root)
 
 
 def _new_upload_target(
     *,
     upload_dir: Path,
-    working_dir: Path,
+    upload_root: Path,
     original_filename: str | None,
 ) -> Path:
     """Return a path-guarded, UUID-named target path inside upload_dir.
@@ -163,19 +170,19 @@ def _new_upload_target(
     preserved if it is on the SAFE_EXTENSIONS allowlist. Does NOT create the
     file — callers either write bytes (`stage_upload`) or stream into it
     (`open_staged_path`). The path is validated with safe_resolve_within
-    against working_dir.
+    against upload_root.
     """
-    # Resolve the upload_dir against working_dir to defend against tampered state.
-    safe_dir = safe_resolve_within(upload_dir, allowed_root=working_dir)
+    # Resolve the upload_dir against upload_root to defend against tampered state.
+    safe_dir = safe_resolve_within(upload_dir, allowed_root=upload_root)
     suffix = _safe_extension(original_filename)
     target = safe_dir / (uuid.uuid4().hex + suffix)
-    return safe_resolve_within(target, allowed_root=working_dir)
+    return safe_resolve_within(target, allowed_root=upload_root)
 
 
 def open_staged_path(
     *,
     upload_dir: Path,
-    working_dir: Path,
+    upload_root: Path,
     original_filename: str | None,
 ) -> Path:
     """Allocate a path-guarded, empty upload target for streaming writes.
@@ -187,7 +194,7 @@ def open_staged_path(
     """
     return _new_upload_target(
         upload_dir=upload_dir,
-        working_dir=working_dir,
+        upload_root=upload_root,
         original_filename=original_filename,
     )
 
@@ -196,7 +203,7 @@ def stage_upload(
     data: bytes,
     *,
     upload_dir: Path,
-    working_dir: Path,
+    upload_root: Path,
     original_filename: str | None,
 ) -> Path:
     """Write `data` to a UUID-named file inside upload_dir.
@@ -204,15 +211,34 @@ def stage_upload(
     In-memory variant retained for the CLI/Streamlit callers that already hold
     the bytes. The FastAPI layer streams to disk via open_staged_path instead.
     The returned path is re-validated with safe_resolve_within against
-    working_dir.
+    upload_root.
     """
     target = _new_upload_target(
         upload_dir=upload_dir,
-        working_dir=working_dir,
+        upload_root=upload_root,
         original_filename=original_filename,
     )
     target.write_bytes(data)
-    return safe_resolve_within(target, allowed_root=working_dir)
+    return safe_resolve_within(target, allowed_root=upload_root)
+
+
+def resolve_input_root(candidate: Path, *, working_root: Path, upload_root: Path) -> Path:
+    """Pick which trusted root `candidate` belongs to.
+
+    A sweep input is either an operator-supplied path under working_dir or a
+    file this process just staged under upload_root. When the two roots differ
+    (containers stage uploads on tmpfs), a single fixed root would reject one
+    or the other. Selecting the containing root keeps the guard strict: the
+    caller still validates against exactly one root, and a path inside neither
+    fails there rather than here.
+    """
+    if working_root == upload_root:
+        return working_root
+    try:
+        safe_resolve_within(candidate, allowed_root=upload_root)
+    except SecurityViolationError:
+        return working_root
+    return upload_root
 
 
 def cleanup_upload_dir(upload_dir: Path) -> None:
@@ -252,7 +278,14 @@ class _CollectingSink:
 
 
 async def _run_async(req: SweepRequest, settings: Settings) -> SweepResult:
+    # Feed and log inputs are read from either root: operator-supplied paths
+    # live under working_dir, while API/UI uploads are staged under
+    # effective_upload_dir (a separate tmpfs root in containers). Both are
+    # trusted roots; the guard still rejects traversal outside whichever one
+    # the path resolves into. When upload_dir is unset the two collapse to a
+    # single root and behaviour is unchanged.
     working_root = settings.paths.working_dir
+    upload_root = settings.paths.effective_upload_dir
     severity_floor = Severity(req.fail_on)
     mode = _OUTPUT_MODES[req.output_mode]
 
@@ -297,11 +330,18 @@ async def _run_async(req: SweepRequest, settings: Settings) -> SweepResult:
         parser = _FEED_PARSERS[req.feed_format]
         iocs = parser(
             req.feed_path,
-            allowed_root=working_root,
+            allowed_root=resolve_input_root(
+                req.feed_path, working_root=working_root, upload_root=upload_root
+            ),
             limits=settings.parser_limits,
         )
 
-        log_source = NdjsonFileLogSource(req.log_path, allowed_root=working_root)
+        log_source = NdjsonFileLogSource(
+            req.log_path,
+            allowed_root=resolve_input_root(
+                req.log_path, working_root=working_root, upload_root=upload_root
+            ),
+        )
         log_lines = log_source.stream()
 
         profile = _resolve_profile(settings)
@@ -523,6 +563,7 @@ __all__ = [
     "get_settings",
     "make_upload_dir",
     "open_staged_path",
+    "resolve_input_root",
     "public_rows",
     "run_sweep",
     "run_sweep_async",

@@ -24,12 +24,17 @@ import json
 import tempfile
 from pathlib import Path
 
+import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 from starlette.requests import Request
 
 from tic.api.rate_limit import RateLimitMiddleware, _PerClientLimiter
 from tic.api.security_headers import SecurityHeadersMiddleware
+
+# Every test here drives the shared FastAPI singleton, so each needs a clean
+# rate-limit window; without it they fail as 429s depending on collection order.
+pytestmark = pytest.mark.usefixtures("fresh_app_middleware")
 
 _REQUIRED_SECURITY_HEADERS = (
     "Content-Security-Policy",

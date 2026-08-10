@@ -282,20 +282,24 @@ async def sweep(
     max_upload_bytes = getattr(
         settings.parser_limits, "max_file_size_bytes", _FALLBACK_MAX_UPLOAD_BYTES
     )
-    working_dir = settings.paths.working_dir
+    # Uploads stage under effective_upload_dir, which defaults to working_dir
+    # but is pointed at ephemeral storage in containers so that a pod killed
+    # before the cleanup in `finally` cannot leave uploaded feeds and logs --
+    # IPs, hostnames, usernames -- on the PersistentVolume.
+    upload_root = settings.paths.effective_upload_dir
     upload_dir = None
     try:
         try:
-            upload_dir = adapter.make_upload_dir(working_dir)
+            upload_dir = adapter.make_upload_dir(upload_root)
             feed_path = adapter.open_staged_path(
                 upload_dir=upload_dir,
-                working_dir=working_dir,
+                upload_root=upload_root,
                 original_filename=feed_file.filename,
             )
             feed_size = await _stream_upload_to(feed_file, feed_path, max_upload_bytes)
             log_path = adapter.open_staged_path(
                 upload_dir=upload_dir,
-                working_dir=working_dir,
+                upload_root=upload_root,
                 original_filename=log_file.filename,
             )
             log_size = await _stream_upload_to(log_file, log_path, max_upload_bytes)
