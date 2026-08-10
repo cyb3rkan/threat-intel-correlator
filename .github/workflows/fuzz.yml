@@ -46,10 +46,11 @@ jobs:
         with:
           python-version: "3.11"
 
+      # Poetry 2.3.4 — poetry.lock is lock-version 2.1, unreadable by Poetry 1.8.x.
       - name: Install Poetry
         uses: snok/install-poetry@76e04a911780d5b312d89783f7b1cd627778900a  # v1.4.1
         with:
-          version: "1.8.3"
+          version: "2.3.4"
           virtualenvs-create: true
           virtualenvs-in-project: true
 
@@ -67,6 +68,9 @@ jobs:
           restore-keys: |
             hypothesis-${{ runner.os }}-${{ github.ref_name }}-
             hypothesis-${{ runner.os }}-main-
+
+      - name: Verify lock file is in sync with pyproject.toml
+        run: poetry check --lock
 
       - name: Install dependencies
         run: poetry install --with dev --all-extras

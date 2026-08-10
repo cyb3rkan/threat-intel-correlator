@@ -5,6 +5,17 @@
 const _DEFAULT_API_BASE = "http://127.0.0.1:8000";
 
 /**
+ * Public demo build flag (NEXT_PUBLIC_TIC_DEMO=1).
+ *
+ * Set ONLY for the hosted portfolio deployment. It relaxes the loopback
+ * guard below to a single https origin and routes sweeps to
+ * /api/demo-sweep, which runs the real pipeline over a fixed sample set.
+ * The backend refuses file uploads whenever TIC_DEMO_MODE is on, so the
+ * two flags are meant to be set together.
+ */
+export const DEMO_MODE: boolean = process.env.NEXT_PUBLIC_TIC_DEMO === "1";
+
+/**
  * Resolve API_BASE from NEXT_PUBLIC_API_BASE with a strict local-only guard.
  * Protects against misconfiguration that would send local sweep data to a
  * remote host (e.g. typo, shared .env, build cache from another project).
@@ -24,15 +35,24 @@ function _resolveApiBase(raw: string | undefined): string {
     return _DEFAULT_API_BASE;
   }
   const host = parsed.hostname.toLowerCase();
-  const isLoopback = host === "127.0.0.1" || host === "localhost" || host === "::1" || host === "[::1]";
-  if (!isLoopback) {
+  const isLoopback =
+    host === "127.0.0.1" ||
+    host === "localhost" ||
+    host === "::1" ||
+    host === "[::1]";
+  // Demo build: allow exactly one remote origin, and only over https, so the
+  // hosted frontend can reach the hosted demo backend. Every other build keeps
+  // the original local-only rule.
+  if (!isLoopback && !(DEMO_MODE && parsed.protocol === "https:")) {
     return _DEFAULT_API_BASE;
   }
   // Strip trailing slash so route concatenation stays well-formed.
   return raw.replace(/\/+$/, "");
 }
 
-export const API_BASE: string = _resolveApiBase(process.env.NEXT_PUBLIC_API_BASE);
+export const API_BASE: string = _resolveApiBase(
+  process.env.NEXT_PUBLIC_API_BASE,
+);
 
 export type Severity = "info" | "low" | "medium" | "high" | "critical";
 export type FeedFormat = "csv" | "ndjson" | "misp-json" | "stix";
@@ -96,6 +116,19 @@ export async function runSweep(
   input: SweepFormInput,
   options?: { signal?: AbortSignal },
 ): Promise<SweepResponse> {
+  // Demo build: the backend accepts no uploads, so ignore the (absent) files
+  // and run the bundled sample set through the same pipeline instead.
+  if (DEMO_MODE) {
+    return runDemoSweep(
+      {
+        output_mode:
+          input.output_mode === "hash" ? "analyst" : input.output_mode,
+        fail_on: input.fail_on,
+      },
+      options,
+    );
+  }
+
   const fd = new FormData();
   fd.append("feed_file", input.feed_file);
   fd.append("log_file", input.log_file);
@@ -123,22 +156,49 @@ export async function runSweep(
   return (await res.json()) as SweepResponse;
 }
 
-// ---------------------------------------------------------------------------
-// Provider status (GET /api/providers/status). Read-only, no secrets returned.
+/**
+ * POST /api/demo-sweep — no file input.
+ *
+ * The hosted demo instance runs the real correlation/scoring pipeline over a
+ * fixed sample feed + event set. Only `analyst` and `summary` output modes
+ * exist there; `hash` needs a keyring-backed HMAC key the demo has no
+ * access to.
+ */
+export async function runDemoSweep(
+  input: { output_mode: "analyst" | "summary"; fail_on: Severity },
+  options?: { signal?: AbortSignal },
+): Promise<SweepResponse> {
+  const body = new URLSearchParams({
+    output_mode: input.output_mode,
+    fail_on: input.fail_on,
+  });
+
+  const res = await fetch(`${API_BASE}/api/demo-sweep`, {
+    method: "POST",
+    headers: { "Content-Type": "application/x-www-form-urlencoded" },
+    body,
+    signal: options?.signal,
+  });
+
+  if (!res.ok) {
+    let detail = `Request failed (${res.status})`;
+    try {
+      const errorBody = await res.json();
+      if (typeof errorBody?.detail === "string") detail = errorBody.detail;
+    } catch {
+      // ignore — keep generic detail
+    }
+    throw new Error(detail);
+  }
+  return (await res.json()) as SweepResponse;
+}
 // ---------------------------------------------------------------------------
 
 export type ProviderReason =
-  | "ok"
-  | "not_configured"
-  | "disabled"
-  | "no_keyring_key"
-  | "endpoint_missing";
+  "ok" | "not_configured" | "disabled" | "no_keyring_key" | "endpoint_missing";
 
 export type AIReason =
-  | "ok"
-  | "ai_disabled"
-  | "endpoint_allowlist_empty"
-  | "no_keyring_key";
+  "ok" | "ai_disabled" | "endpoint_allowlist_empty" | "no_keyring_key";
 
 export type EndpointKind = "public" | "internal" | "none";
 
@@ -167,9 +227,9 @@ export interface ProviderStatusResponse {
   redaction_hmac: { key_present: boolean };
 }
 
-export async function getProviderStatus(
-  options?: { signal?: AbortSignal },
-): Promise<ProviderStatusResponse | null> {
+export async function getProviderStatus(options?: {
+  signal?: AbortSignal;
+}): Promise<ProviderStatusResponse | null> {
   try {
     const res = await fetch(`${API_BASE}/api/providers/status`, {
       cache: "no-store",
@@ -197,7 +257,9 @@ export const AI_REASON_LABEL: Record<AIReason, string> = {
   no_keyring_key: "Keyring key yok",
 };
 
-export async function checkHealth(options?: { signal?: AbortSignal }): Promise<boolean> {
+export async function checkHealth(options?: {
+  signal?: AbortSignal;
+}): Promise<boolean> {
   try {
     const res = await fetch(`${API_BASE}/api/health`, {
       cache: "no-store",
@@ -215,29 +277,54 @@ export async function checkHealth(options?: { signal?: AbortSignal }): Promise<b
 // Pure UI helpers — derived purely from PublicFinding (no extra backend calls).
 // ---------------------------------------------------------------------------
 
-export const SEVERITY_ORDER: Severity[] = ["critical", "high", "medium", "low", "info"];
+export const SEVERITY_ORDER: Severity[] = [
+  "critical",
+  "high",
+  "medium",
+  "low",
+  "info",
+];
 
-export function countBySeverity(findings: PublicFinding[]): Record<Severity, number> {
-  const out: Record<Severity, number> = { info: 0, low: 0, medium: 0, high: 0, critical: 0 };
+export function countBySeverity(
+  findings: PublicFinding[],
+): Record<Severity, number> {
+  const out: Record<Severity, number> = {
+    info: 0,
+    low: 0,
+    medium: 0,
+    high: 0,
+    critical: 0,
+  };
   for (const f of findings) out[f.severity] += 1;
   return out;
 }
 
-export function countByIocType(findings: PublicFinding[]): Array<{ name: string; value: number }> {
+export function countByIocType(
+  findings: PublicFinding[],
+): Array<{ name: string; value: number }> {
   const m = new Map<string, number>();
   for (const f of findings) m.set(f.ioc_type, (m.get(f.ioc_type) ?? 0) + 1);
-  return Array.from(m, ([name, value]) => ({ name, value })).sort((a, b) => b.value - a.value);
+  return Array.from(m, ([name, value]) => ({ name, value })).sort(
+    (a, b) => b.value - a.value,
+  );
 }
 
-export function providerCoverage(findings: PublicFinding[]): Array<{ provider: string; count: number }> {
+export function providerCoverage(
+  findings: PublicFinding[],
+): Array<{ provider: string; count: number }> {
   const m = new Map<string, number>();
   for (const f of findings) {
-    for (const e of f.enrichments) m.set(e.provider, (m.get(e.provider) ?? 0) + 1);
+    for (const e of f.enrichments)
+      m.set(e.provider, (m.get(e.provider) ?? 0) + 1);
   }
-  return Array.from(m, ([provider, count]) => ({ provider, count })).sort((a, b) => b.count - a.count);
+  return Array.from(m, ([provider, count]) => ({ provider, count })).sort(
+    (a, b) => b.count - a.count,
+  );
 }
 
-export function scoreBuckets(findings: PublicFinding[]): Array<{ bucket: string; count: number }> {
+export function scoreBuckets(
+  findings: PublicFinding[],
+): Array<{ bucket: string; count: number }> {
   const buckets = [
     { bucket: "0–19", count: 0 },
     { bucket: "20–39", count: 0 },
@@ -312,7 +399,10 @@ export function findingsToCsv(findings: PublicFinding[]): string {
   return lines.join("\n") + "\n";
 }
 
-export function findingsToJson(response: SweepResponse | null, findings: PublicFinding[]): string {
+export function findingsToJson(
+  response: SweepResponse | null,
+  findings: PublicFinding[],
+): string {
   // Mirror the backend's render_json shape so the export stays consistent.
   return JSON.stringify(
     {
@@ -328,7 +418,22 @@ export function findingsToJson(response: SweepResponse | null, findings: PublicF
   );
 }
 
-const MD_SPECIAL = ["\\", "`", "*", "_", "{", "}", "[", "]", "(", ")", "#", "<", ">", "|"];
+const MD_SPECIAL = [
+  "\\",
+  "`",
+  "*",
+  "_",
+  "{",
+  "}",
+  "[",
+  "]",
+  "(",
+  ")",
+  "#",
+  "<",
+  ">",
+  "|",
+];
 function mdEscape(s: string): string {
   let out = s;
   for (const ch of MD_SPECIAL) out = out.split(ch).join("\\" + ch);
@@ -351,7 +456,10 @@ function mdInlineCode(value: string): string {
 // escaping, and a literal newline ends the cell. Other Markdown specials
 // stay literal because table cells are rendered as inline phrasing.
 function mdTableCell(value: string): string {
-  return value.replace(/\\/g, "\\\\").replace(/\|/g, "\\|").replace(/\r?\n/g, " ");
+  return value
+    .replace(/\\/g, "\\\\")
+    .replace(/\|/g, "\\|")
+    .replace(/\r?\n/g, " ");
 }
 
 export function findingsToMarkdown(findings: PublicFinding[]): string {
@@ -363,18 +471,31 @@ export function findingsToMarkdown(findings: PublicFinding[]): string {
     return lines.join("\n");
   }
   for (const [i, f] of findings.entries()) {
-    lines.push(`### ${i + 1}. ${f.severity.toUpperCase()} — score ${f.score}`, "");
+    lines.push(
+      `### ${i + 1}. ${f.severity.toUpperCase()} — score ${f.score}`,
+      "",
+    );
     lines.push(`- **IOC type:** ${mdInlineCode(f.ioc_type)}`);
     lines.push(`- **Value:** ${mdInlineCode(f.ioc_value)}`);
     lines.push(`- **Source:** ${mdEscape(f.ioc_source)}`);
     lines.push(`- **Eşleşme sayısı:** ${f.match_count}`);
-    if (f.ioc_tags.length) lines.push(`- **Tags:** ${f.ioc_tags.map(mdEscape).join(", ")}`);
+    if (f.ioc_tags.length)
+      lines.push(`- **Tags:** ${f.ioc_tags.map(mdEscape).join(", ")}`);
     lines.push(`- **Finding ID:** ${mdInlineCode(f.finding_id)}`);
     if (f.enrichments.length) {
-      lines.push("", "**Enrichments:**", "", "| Provider | Reputation | Tags |", "|---|---|---|");
+      lines.push(
+        "",
+        "**Enrichments:**",
+        "",
+        "| Provider | Reputation | Tags |",
+        "|---|---|---|",
+      );
       for (const e of f.enrichments) {
-        const rep = e.reputation_score == null ? "—" : String(e.reputation_score);
-        const tags = e.tags.length ? e.tags.map((t) => mdTableCell(t)).join(", ") : "—";
+        const rep =
+          e.reputation_score == null ? "—" : String(e.reputation_score);
+        const tags = e.tags.length
+          ? e.tags.map((t) => mdTableCell(t)).join(", ")
+          : "—";
         lines.push(`| ${mdTableCell(e.provider)} | ${rep} | ${tags} |`);
       }
     }

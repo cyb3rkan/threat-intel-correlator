@@ -20,6 +20,7 @@ import { Switch } from "@/components/ui/switch";
 
 import {
   AI_REASON_LABEL,
+  DEMO_MODE,
   type AIStatus,
   type FeedFormat,
   type OutputMode,
@@ -28,7 +29,11 @@ import {
 } from "@/lib/api";
 
 const FEED_FORMATS: FeedFormat[] = ["csv", "ndjson", "misp-json", "stix"];
-const OUTPUT_MODES: OutputMode[] = ["analyst", "summary", "hash"];
+// `hash` needs the keyring-backed redaction HMAC key, which the hosted demo
+// instance does not have — so it is not offered there.
+const OUTPUT_MODES: OutputMode[] = DEMO_MODE
+  ? ["analyst", "summary"]
+  : ["analyst", "summary", "hash"];
 const FAIL_ON: Severity[] = ["info", "low", "medium", "high", "critical"];
 
 interface Props {
@@ -40,7 +45,12 @@ interface Props {
   redactionHmacReady?: boolean | null;
 }
 
-export function SweepForm({ loading, onSubmit, aiStatus, redactionHmacReady }: Props) {
+export function SweepForm({
+  loading,
+  onSubmit,
+  aiStatus,
+  redactionHmacReady,
+}: Props) {
   const [feedFile, setFeedFile] = React.useState<File | null>(null);
   const [logFile, setLogFile] = React.useState<File | null>(null);
   const [feedFormat, setFeedFormat] = React.useState<FeedFormat>("csv");
@@ -49,19 +59,23 @@ export function SweepForm({ loading, onSubmit, aiStatus, redactionHmacReady }: P
   const [withAi, setWithAi] = React.useState(false);
   const [localError, setLocalError] = React.useState<string | null>(null);
 
-  const filesReady = feedFile !== null && logFile !== null;
+  // Demo build: the backend refuses uploads and runs a bundled sample set,
+  // so there is nothing for the user to select.
+  const filesReady = DEMO_MODE || (feedFile !== null && logFile !== null);
   const submitDisabled = loading || !filesReady;
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (!filesReady) {
-      setLocalError("Sweep çalıştırmak için hem IOC feed hem de log dosyası seçilmelidir.");
+      setLocalError(
+        "Sweep çalıştırmak için hem IOC feed hem de log dosyası seçilmelidir.",
+      );
       return;
     }
     setLocalError(null);
     onSubmit({
-      feed_file: feedFile,
-      log_file: logFile,
+      feed_file: feedFile as File,
+      log_file: logFile as File,
       feed_format: feedFormat,
       output_mode: outputMode,
       fail_on: failOn,
@@ -71,35 +85,47 @@ export function SweepForm({ loading, onSubmit, aiStatus, redactionHmacReady }: P
 
   return (
     <form onSubmit={handleSubmit} className="grid gap-4">
-      <div className="grid gap-1.5">
-        <Label htmlFor="feed_file" className="text-xs font-medium text-foreground/90">
-          IOC feed dosyası
-        </Label>
-        <Input
-          id="feed_file"
-          type="file"
-          accept=".csv,.ndjson,.json,.txt"
-          onChange={(e) => setFeedFile(e.target.files?.[0] ?? null)}
-          disabled={loading}
-          className="h-9"
-        />
-        <FileHint file={feedFile} hint="csv · ndjson · misp-json · stix" />
-      </div>
+      {DEMO_MODE ? (
+        <DemoNotice />
+      ) : (
+        <>
+          <div className="grid gap-1.5">
+            <Label
+              htmlFor="feed_file"
+              className="text-xs font-medium text-foreground/90"
+            >
+              IOC feed dosyası
+            </Label>
+            <Input
+              id="feed_file"
+              type="file"
+              accept=".csv,.ndjson,.json,.txt"
+              onChange={(e) => setFeedFile(e.target.files?.[0] ?? null)}
+              disabled={loading}
+              className="h-9"
+            />
+            <FileHint file={feedFile} hint="csv · ndjson · misp-json · stix" />
+          </div>
 
-      <div className="grid gap-1.5">
-        <Label htmlFor="log_file" className="text-xs font-medium text-foreground/90">
-          Log dosyası (NDJSON)
-        </Label>
-        <Input
-          id="log_file"
-          type="file"
-          accept=".ndjson,.json,.log,.txt"
-          onChange={(e) => setLogFile(e.target.files?.[0] ?? null)}
-          disabled={loading}
-          className="h-9"
-        />
-        <FileHint file={logFile} hint="Her satırda tek bir JSON objesi." />
-      </div>
+          <div className="grid gap-1.5">
+            <Label
+              htmlFor="log_file"
+              className="text-xs font-medium text-foreground/90"
+            >
+              Log dosyası (NDJSON)
+            </Label>
+            <Input
+              id="log_file"
+              type="file"
+              accept=".ndjson,.json,.log,.txt"
+              onChange={(e) => setLogFile(e.target.files?.[0] ?? null)}
+              disabled={loading}
+              className="h-9"
+            />
+            <FileHint file={logFile} hint="Her satırda tek bir JSON objesi." />
+          </div>
+        </>
+      )}
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
         <div className="grid gap-2">
@@ -172,10 +198,10 @@ export function SweepForm({ loading, onSubmit, aiStatus, redactionHmacReady }: P
             <span className="inline-flex items-center gap-1.5 font-medium">
               <Hash className="h-3.5 w-3.5" /> Hash mode kullanılamıyor
             </span>{" "}
-            Backend keyring’inde redaction HMAC key bulunamadı; bu nedenle hash mode anlaşılır
-            bir hata ile başarısız olur. Çözmek için{" "}
-            <code className="font-mono">tic config set-key redaction-hmac</code> komutunu çalıştırın
-            ya da output mode olarak{" "}
+            Backend keyring’inde redaction HMAC key bulunamadı; bu nedenle hash
+            mode anlaşılır bir hata ile başarısız olur. Çözmek için{" "}
+            <code className="font-mono">tic config set-key redaction-hmac</code>{" "}
+            komutunu çalıştırın ya da output mode olarak{" "}
             <code className="font-mono">analyst</code> veya{" "}
             <code className="font-mono">summary</code> seçin.
           </div>
@@ -185,21 +211,26 @@ export function SweepForm({ loading, onSubmit, aiStatus, redactionHmacReady }: P
               <Hash className="h-3.5 w-3.5" /> Hash mode
             </span>{" "}
             IOC değerleri <code className="font-mono">hmac:&lt;hex&gt;</code>{" "}
-            pseudonym formatında döner. Frontend bunları olduğu gibi gösterir; orijinal değerler backend tarafında kalır.
+            pseudonym formatında döner. Frontend bunları olduğu gibi gösterir;
+            orijinal değerler backend tarafında kalır.
           </div>
         )
       ) : null}
 
       <div className="flex items-center justify-between rounded-md border border-border p-3">
         <div className="grid gap-0.5">
-          <Label htmlFor="with_ai" className="inline-flex items-center gap-1.5 text-sm">
+          <Label
+            htmlFor="with_ai"
+            className="inline-flex items-center gap-1.5 text-sm"
+          >
             <Sparkles className="h-3.5 w-3.5 text-blue-600" />
             AI narration
           </Label>
           <span className="text-xs text-muted-foreground">
-            Varsayılan olarak kapalıdır. Yalnızca <code className="font-mono">ai.enabled</code>{" "}
-            true olduğunda ve keyring içinde bir key bulunduğunda devreye girer. Hazır
-            değilse sweep sessizce AI olmadan çalışır.
+            Varsayılan olarak kapalıdır. Yalnızca{" "}
+            <code className="font-mono">ai.enabled</code> true olduğunda ve
+            keyring içinde bir key bulunduğunda devreye girer. Hazır değilse
+            sweep sessizce AI olmadan çalışır.
           </span>
           <AIStatusHint aiStatus={aiStatus} requested={withAi} />
         </div>
@@ -220,7 +251,11 @@ export function SweepForm({ loading, onSubmit, aiStatus, redactionHmacReady }: P
       <Button
         type="submit"
         disabled={submitDisabled}
-        title={!filesReady ? "Önce hem IOC feed hem de log dosyası seçin." : undefined}
+        title={
+          !filesReady
+            ? "Önce hem IOC feed hem de log dosyası seçin."
+            : undefined
+        }
         className="w-full bg-blue-600 text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:bg-blue-600/40"
       >
         {loading ? (
@@ -239,6 +274,24 @@ export function SweepForm({ loading, onSubmit, aiStatus, redactionHmacReady }: P
         </p>
       ) : null}
     </form>
+  );
+}
+
+function DemoNotice() {
+  return (
+    <div className="rounded-md border border-blue-200 bg-blue-50/50 px-3 py-2.5 text-[11px] leading-relaxed text-blue-900 dark:border-blue-900/60 dark:bg-blue-950/30 dark:text-blue-100">
+      <span className="font-medium">Demo instance</span> — dosya yükleme kapalı.
+      Sweep, sunucuya gömülü örnek IOC feed’i ve olay kaydı üzerinde çalışır;
+      parsing, Aho-Corasick korelasyonu ve skorlama gerçek pipeline’ın ta
+      kendisidir. Enrichment sağlayıcıları (VirusTotal, AbuseIPDB, MISP) demoda
+      yapılandırılmadığı için skorun provider ve reputation bileşenleri sıfır
+      kalır — bu nedenle skorlar 100 üzerinden ~52 ile sınırlıdır ve{" "}
+      <span className="font-medium">
+        high/critical severity bu demoda görünmez
+      </span>
+      . Tüm örnek veriler RFC 5737 ve example.com ayrılmış aralıklarından
+      üretilmiştir.
+    </div>
   );
 }
 
@@ -263,7 +316,8 @@ function AIStatusHint({
   const label = AI_REASON_LABEL[reasonKey] ?? aiStatus.reason;
   return (
     <span className="text-[11px] text-amber-700 dark:text-amber-300">
-      AI narrator hazır değil ({label}). Talep edilse de sweep AI olmadan çalışır.
+      AI narrator hazır değil ({label}). Talep edilse de sweep AI olmadan
+      çalışır.
     </span>
   );
 }
@@ -274,8 +328,12 @@ function FileHint({ file, hint }: { file: File | null; hint: string }) {
   }
   const kb = (file.size / 1024).toFixed(1);
   return (
-    <span className="truncate text-[11px] text-muted-foreground" title={file.name}>
-      Seçilen: <span className="font-mono text-foreground/90">{file.name}</span> · {kb} KB
+    <span
+      className="truncate text-[11px] text-muted-foreground"
+      title={file.name}
+    >
+      Seçilen: <span className="font-mono text-foreground/90">{file.name}</span>{" "}
+      · {kb} KB
     </span>
   );
 }
