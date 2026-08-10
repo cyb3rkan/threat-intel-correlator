@@ -395,12 +395,14 @@ if _demo.DEMO_MODE:
                 status_code=500, detail="Settings could not be loaded."
             ) from None
 
-        working_dir = settings.paths.working_dir
+        # Same staging root as /api/sweep: ephemeral in containers, so a pod
+        # killed mid-sweep leaves nothing behind on the PersistentVolume.
+        upload_root = settings.paths.effective_upload_dir
         upload_dir = None
         try:
-            upload_dir = adapter.make_upload_dir(working_dir)
+            upload_dir = adapter.make_upload_dir(upload_root)
             feed_path, log_path = _demo.stage_demo_inputs(
-                upload_dir=upload_dir, working_dir=working_dir
+                upload_dir=upload_dir, upload_root=upload_root
             )
 
             req = adapter.SweepRequest(

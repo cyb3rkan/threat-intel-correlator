@@ -220,22 +220,24 @@ DEMO_EVENTS_NDJSON = (
 )
 
 
-def stage_demo_inputs(*, upload_dir: Path, working_dir: Path) -> tuple[Path, Path]:
+def stage_demo_inputs(*, upload_dir: Path, upload_root: Path) -> tuple[Path, Path]:
     """Write the bundled feed + events into the session upload dir.
 
     Reuses adapter.stage_upload so the demo inputs go through exactly the
-    same path guard as a real upload would.
+    same path guard as a real upload would. `upload_root` is the containment
+    root that guard checks against -- settings.paths.effective_upload_dir,
+    which the demo image points at ephemeral storage.
     """
     feed_path = adapter.stage_upload(
         DEMO_FEED_CSV.encode("utf-8"),
         upload_dir=upload_dir,
-        working_dir=working_dir,
+        upload_root=upload_root,
         original_filename="demo-feed.csv",
     )
     log_path = adapter.stage_upload(
         DEMO_EVENTS_NDJSON.encode("utf-8"),
         upload_dir=upload_dir,
-        working_dir=working_dir,
+        upload_root=upload_root,
         original_filename="demo-events.ndjson",
     )
     return feed_path, log_path
