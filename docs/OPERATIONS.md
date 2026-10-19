@@ -5,7 +5,7 @@ Day-to-day playbook for running TIC on an analyst workstation.
 ## Install
 
 ```bash
-poetry install --with dev --extras "ui api"
+poetry install --with dev --extras "api"
 ```
 
 Required paths (set via env or `configs/default.yaml`):

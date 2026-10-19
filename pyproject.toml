@@ -21,6 +21,7 @@ pyahocorasick = "^2.1"
 defusedxml = "^0.7.1"
 idna = ">=3.15"
 python-dateutil = "^2.9"
+pyyaml = "^6.0"  # imported by tic.infra.config, tic.cli.commands.sweep, tic.ui.adapter
 tenacity = "^8.3"
 stix2-patterns = "^2.0.0"
 fastapi = "^0.136.1"
