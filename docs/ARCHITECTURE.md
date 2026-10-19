@@ -9,7 +9,7 @@ along framework or transport concerns.
 ```
 +---------------------------------------------------------------+
 |                         UI layer                              |
-|  CLI (tic.cli) | FastAPI (tic.api) | Streamlit fallback (ui)  |
+|  CLI (tic.cli) | FastAPI (tic.api) | Next.js frontend (web)   |
 +---------------------------------------------------------------+
 |                       Application                             |
 |  Orchestrator | Scoring | Correlation | Redaction | Narrator  |
@@ -33,7 +33,7 @@ Key rules:
 - **Ports** (`tic.ports`) are protocol-only interfaces.
 - **Adapters** depend on ports, never on each other.
 - Wiring lives in `tic.cli._wiring` and is reused by every UI surface
-  (CLI, FastAPI, Streamlit) — there is exactly one place that constructs
+  (CLI, FastAPI) — there is exactly one place that constructs
   providers.
 
 ## Data Flow (sweep)
